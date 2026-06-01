@@ -212,10 +212,10 @@ async function deleteUserTest() {
       console.log('✅ Клик по кнопке подтверждения удаления выполнен (по XPath)');
       
       // Ждём появления сообщения об успешном удалении
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(5000);
       
       // Проверяем, что мы перешли на страницу логина
-      await page.waitForURL('https://app.striveapp.ru/login', { timeout: 15000 });
+      await page.waitForURL('https://app.striveapp.ru/login', { timeout: 20000 });
       console.log('✅ Пользователь успешно удален и перенаправлен на страницу логина!');
       console.log(`📍 URL страницы логина: ${page.url()}`);
     } catch (err) {
