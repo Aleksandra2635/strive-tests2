@@ -1,0 +1,32 @@
+{
+  "name": "registration-test",
+  "version": "1.0.0",
+  "description": "Registration with email verification",
+  "main": "registration.js",
+  "type": "commonjs",
+  "scripts": {
+    "test:registration": "node registration.js",
+    "login": "node login.js",
+    "test:login_oplata": "node login_oplata_Test.js",
+    "Order_cancellation": "node ordercancellation.js",
+    "delete_user": "node deleteUserTest.js",
+    "test:site": "node siteAvailabilityTest.js",
+    "test:all": "node run-all-tests.js"
+  },
+  "keywords": [
+    "automation",
+    "testing",
+    "registration"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "dotenv": "^16.6.1",
+    "imap": "^0.8.19",
+    "imap-simple": "^5.1.0",
+    "mailparser": "^3.9.3",
+    "node-telegram-bot-api": "^0.67.0",
+    "playwright": "^1.58.1"
+  }
+}

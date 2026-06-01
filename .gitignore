@@ -1,0 +1,28 @@
+# Секреты
+.env
+secrets/
+
+# Зависимости
+node_modules/
+
+# Скриншоты и артефакты тестов
+*.png
+*.html
+*.txt
+test-log-*.txt
+final-report-*.txt
+error.*
+last_email.txt
+
+# Логи
+*.log
+
+# ОС
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/

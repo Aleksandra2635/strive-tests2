@@ -1,0 +1,51 @@
+name: 🕐 Ежедневные тесты StriveApp
+
+on:
+  schedule:
+    - cron: '30 15 * * *'  # 15:30 UTC = 18:30 MSK
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout кода
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Установка Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Установка зависимостей
+        run: npm ci
+
+      - name: 🎭 Установка браузеров Playwright
+        run: npx playwright install chromium
+
+      - name: 🚀 Запуск всех тестов
+        id: tests
+        continue-on-error: true
+        run: npm run test:all
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          USER_EMAIL: ${{ secrets.USER_EMAIL }}
+          USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
+          USER_EMAIL_PASSWORD: ${{ secrets.USER_EMAIL_PASSWORD }}
+
+      - name: 📸 Сохранение артефактов
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: |
+            test-log-*.txt
+            final-report-*.txt
+          retention-days: 30
+
+      - name: ❌ Завершить job с ошибкой, если тесты упали
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
