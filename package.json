@@ -11,6 +11,7 @@
     "Order_cancellation": "node ordercancellation.js",
     "delete_user": "node deleteUserTest.js",
     "test:site": "node siteAvailabilityTest.js",
+    "test:zapros_demo": "node siteZaprosDem.js",
     "test:all": "node run-all-tests.js"
   },
   "keywords": [

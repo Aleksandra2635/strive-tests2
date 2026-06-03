@@ -24,6 +24,14 @@ const tests = [
     logs: [] // ← ДОБАВЛЕНО: массив для логов каждого теста
   },
   { 
+    name: 'Запрос на демонстрацию', // <<< НОВЫЙ ТЕСТ ЗДЕСЬ
+    script: 'node siteZaprosDem.js', 
+    successFile: 'zapros-demo-success.png',
+    duration: 0,
+    status: 'pending',
+    logs: []
+  },
+  { 
     name: 'Регистрация', 
     script: 'node registration.js', 
     successFile: 'registration-success.png',
