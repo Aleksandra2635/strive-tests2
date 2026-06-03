@@ -2,7 +2,7 @@ name: 🕐 Ежедневные тесты StriveApp
 
 on:
   schedule:
-    - cron: '0 16 * * *'  # 16:00 UTC = 19:00 MSK
+    - cron: '0 12 * * *' 
   workflow_dispatch:
 
 jobs:
