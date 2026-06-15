@@ -91,6 +91,21 @@ await page.fill('input[type="text"][maxlength="1"]:nth-of-type(4)', confirmation
     await page.fill('[data-testid="name"]', 'Тестовый Пользователь');
     await page.click('button.inline-flex:has-text("Продолжить")');
 
+   console.log('📱 Установка номера телефона...');
+    await page.waitForSelector('input[name="phone"]', { timeout: 15000 });
+    await page.fill('input[name="phone"]', '+79887655643');
+
+    // 7. Клик на кнопку "10-50"
+    console.log('🔘 Клик на кнопку диапазона...');
+    await page.waitForSelector('button[type="button"]:has-text("10-50")', { timeout: 15000 });
+    await page.click('button[type="button"]:has-text("10-50")');
+    await page.click('button.inline-flex:has-text("Продолжить")');
+
+    console.log('🔍 Проверка перехода на главную страницу...');
+    await page.waitForURL('https://app.striveapp.ru/admin-panel/organization', { timeout: 15000 });
+    console.log('✅ Успешно перешли на главную страницу!');
+
+     
     console.log('✅ Регистрация успешно завершена!');
     await page.waitForTimeout(3000);
 
