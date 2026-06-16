@@ -12,6 +12,7 @@
     "delete_user": "node deleteUserTest.js",
     "test:site": "node siteAvailabilityTest.js",
     "test:zapros_demo": "node siteZaprosDem.js",
+    "test:create_space": "node createSpace.js",
     "test:all": "node run-all-tests.js"
   },
   "keywords": [
