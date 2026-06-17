@@ -88,12 +88,12 @@ await page.fill('input[type="text"][maxlength="1"]:nth-of-type(4)', confirmation
     // 5. Установка имени
     console.log('👤 Установка имени пользователя...');
     await page.waitForSelector('[data-testid="name"]', { timeout: 15000 });
-    await page.fill('[data-testid="name"]', 'Тестовый Пользователь');
+    await page.fill('[data-testid="name"]', 'Strive Test');
     await page.click('button.inline-flex:has-text("Продолжить")');
 
    console.log('📱 Установка номера телефона...');
     await page.waitForSelector('input[name="phone"]', { timeout: 15000 });
-    await page.fill('input[name="phone"]', '+79887655643');
+    await page.fill('input[name="phone"]', '+79999999999');
 
     // 7. Клик на кнопку "10-50"
     console.log('🔘 Клик на кнопку диапазона...');

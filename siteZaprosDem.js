@@ -38,14 +38,14 @@ const { getBrowserOptions, getTimeouts } = require('./browserConfig');
     // 3. Заполняем поле "Имя" (берем последнее совпадение - из модального окна)
     const nameInput = page.locator('input[name="name"][placeholder="Имя"]').last();
     await nameInput.click();
-    await nameInput.fill('test');
-    console.log('Введено имя: test');
+    await nameInput.fill('Strive Test');
+    console.log('Введено имя: Strive Test');
 
     // 4. Заполняем поле "Телефон"
     const phoneInput = page.locator('input[name="phone"][placeholder="Телефон"]').last();
     await phoneInput.click();
-    await phoneInput.fill('+79887655643');
-    console.log('Введен телефон: +79887655643');
+    await phoneInput.fill('+79999999999');
+    console.log('Введен телефон: +79999999999');
 
     // 5. Закрытие плашки куки (если появилась)
     try {
