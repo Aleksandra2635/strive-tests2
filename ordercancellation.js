@@ -218,10 +218,10 @@ try {
         state: 'visible',
         timeout: 10000
       });
-      
-      // Ввод текста "Test"
-      await page.fill('textarea[placeholder="Введите причину отмены"]', 'Test');
-      console.log('✅ Введена причина: Test');
+
+      // Ввод текста "Strive Test"
+      await page.fill('textarea[placeholder="Введите причину отмены"]', 'Strive Test');
+      console.log('✅ Введена причина: Strive Test');
     } catch (err) {
       console.error('❌ Не удалось найти поле ввода причины');
       throw new Error('Не удалось найти поле ввода причины');

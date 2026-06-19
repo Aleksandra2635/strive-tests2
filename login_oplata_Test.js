@@ -264,8 +264,8 @@ try {
         timeout: 10000
       });
       
-      // Ввод российского номера телефона (формат: 79991234567)
-      const russianPhone = '9991234567';
+      // Ввод российского номера телефона (формат: 9999999999)
+      const russianPhone = '9999999999';
       await page.fill('input[name="phone"]', russianPhone);
       console.log(`✅ Введен номер телефона: ${russianPhone}`);
     } catch (err) {
