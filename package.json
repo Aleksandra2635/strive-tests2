@@ -13,6 +13,7 @@
     "test:site": "node siteAvailabilityTest.js",
     "test:zapros_demo": "node siteZaprosDem.js",
     "test:create_space": "node createSpace.js",
+    "test:create_project": "node createProject.js",
     "test:all": "node run-all-tests.js"
   },
   "keywords": [
