@@ -80,6 +80,14 @@ const tests = [
     logs: []
   },
   { 
+    name: 'Создание колонки', 
+    script: 'node createStages.js', 
+    successFile: 'stages-created.png',
+    duration: 0,
+    status: 'pending',
+    logs: []
+  },
+  { 
     name: 'Удаление пользователя', 
     script: 'node deleteUserTest.js', 
     successFile: 'user-deleted.png',
