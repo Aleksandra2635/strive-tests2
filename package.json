@@ -15,6 +15,7 @@
     "test:create_space": "node createSpace.js",
     "test:create_project": "node createProject.js",
     "test:create_column": "node createStages.js",
+    "test:create_task": "node createTask.js",
     "test:all": "node run-all-tests.js"
   },
   "keywords": [
