@@ -131,38 +131,36 @@ await page.fill('textarea[type="text"]', COLUMN_NAME);
 await page.waitForTimeout(500);
 console.log(`✅ Введено название: ${COLUMN_NAME}`);
 
-  // 6️⃣ Сохранение колонки - клик по div
+ // 6️⃣ Сохранение колонки - клик по кнопке
 console.log('\n💾 Сохранение колонки...');
 
 try {
-  // Клик по div с классом ghost-first
-  console.log('🔍 Клик по div.ghost-first...');
-  await page.waitForSelector('div.ghost-first.h-\\[60px\\]', {
+  // Клик по кнопке через XPath
+  console.log('🔍 Клик по кнопке сохранения (XPath)...');
+  await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[3]/div/div[3]/div/div/div/span', {
     state: 'visible',
-    timeout: 2000
+    timeout: 10000
   });
-  await page.click('div.ghost-first.h-\\[60px\\]');
-  console.log('✅ Клик по div.ghost-first выполнен');
+  await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[3]/div/div[3]/div/div/div/span');
+  console.log('✅ Клик по кнопке сохранения выполнен');
   
 } catch (err) {
-  console.warn('⚠️ Не найдено по классу, пробуем по data-атрибуту...');
+  console.warn('⚠️ Не найдено по XPath, пробуем резервные способы...');
   
   try {
-    // Резервный способ: по data-атрибуту
-    await page.click('div[data-v-efdc4485]');
-    console.log('✅ Клик по div[data-v-efdc4485] выполнен');
+    // Резервный способ 1: по классу
+    await page.click('div.ghost-first.h-\\[60px\\]');
+    console.log('✅ Клик по div.ghost-first выполнен');
     
   } catch (err2) {
-    console.warn('⚠️ Не найдено по data-атрибуту, пробуем по классу ghost-first...');
-    
     try {
-      // Резервный способ: только по ghost-first
-      await page.click('div.ghost-first');
-      console.log('✅ Клик по div.ghost-first выполнен');
+      // Резервный способ 2: по data-атрибуту
+      await page.click('div[data-v-efdc4485]');
+      console.log('✅ Клик по div[data-v-efdc4485] выполнен');
       
     } catch (err3) {
-      console.error('❌ Не удалось найти div для сохранения колонки');
-      throw new Error('Div для сохранения колонки не найден');
+      console.error('❌ Не удалось сохранить колонку');
+      throw new Error('Не удалось сохранить колонку');
     }
   }
 }
