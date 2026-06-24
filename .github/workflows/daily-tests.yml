@@ -35,6 +35,8 @@ jobs:
           USER_EMAIL: ${{ secrets.USER_EMAIL }}
           USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
           USER_EMAIL_PASSWORD: ${{ secrets.USER_EMAIL_PASSWORD }}
+          MAX_BOT_TOKEN: ${{ secrets.MAX_BOT_TOKEN }}
+          MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
 
       - name: 📸 Сохранение артефактов
         if: always()
