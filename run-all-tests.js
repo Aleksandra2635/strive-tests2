@@ -1,6 +1,7 @@
 // run-all-tests.js
 const { exec } = require('child_process');
-const { sendFinalReport } = require('./telegram');
+const { sendFinalReport: sendToTelegram } = require('./telegram'); // ← ДОБАВЛЕН ALIAS
+const { sendFinalReport: sendToMax } = require('./max');
 const fs = require('fs');
 
 // Создаём общий лог-файл
@@ -21,10 +22,10 @@ const tests = [
     successFile: 'site-available.png',
     duration: 0,
     status: 'pending',
-    logs: [] // ← ДОБАВЛЕНО: массив для логов каждого теста
+    logs: []
   },
   { 
-    name: 'Запрос на демонстрацию', // <<< НОВЫЙ ТЕСТ ЗДЕСЬ
+    name: 'Запрос на демонстрацию',
     script: 'node siteZaprosDem.js', 
     successFile: 'zapros-demo-success.png',
     duration: 0,
@@ -87,7 +88,7 @@ const tests = [
     status: 'pending',
     logs: []
   },
-  { 
+   { 
     name: 'Создание задачи', 
     script: 'node createTask.js', 
     successFile: 'task-created.png',
@@ -202,16 +203,14 @@ async function generateFinalReport() {
     report += `${statusIcon} ${index + 1}. ${test.name} — ${test.duration} сек\n`;
   });
   
-  // ДОБАВЛЕНО: Подробные логи проваленных тестов
+  // Подробные логи проваленных тестов
   const failedTests = tests.filter(t => t.status === 'failed');
   if (failedTests.length > 0) {
     report += `\n🔍 Подробные логи ошибок:\n`;
     failedTests.forEach((test, index) => {
       report += `\n❌ ${test.name}:\n`;
-      // Показываем последние 10 строк логов (или все, если меньше 10)
       const relevantLogs = test.logs.slice(-10);
       relevantLogs.forEach(logLine => {
-        // Убираем временные метки из логов для читаемости
         const cleanLog = logLine.replace(/^\[.*?\]\s*/, '');
         if (cleanLog.trim()) {
           report += `   • ${cleanLog}\n`;
@@ -225,14 +224,18 @@ async function generateFinalReport() {
     ? `🎉 ВСЕ ТЕСТЫ ПРОЙДЕНЫ УСПЕШНО!\n${report}`
     : `⚠️ НЕКОТОРЫЕ ТЕСТЫ ПРОВАЛЕНЫ (${failed}/${tests.length})\n${report}`;
   
-    log('\n' + '='.repeat(50));
-    log('📊 ФИНАЛЬНЫЙ ОТЧЁТ ТЕСТИРОВАНИЯ STRIVE\n' + '='.repeat(50));
-    log(summary);
-    log('='.repeat(50) + '\n');
-    
-    await sendFinalReport(summary);
-  }
+  log('\n' + '='.repeat(50));
+  log('📊 ФИНАЛЬНЫЙ ОТЧЁТ ТЕСТИРОВАНИЯ STRIVE\n' + '='.repeat(50));
+  log(summary);
+  log('='.repeat(50) + '\n');
   
-  // Запускаем тесты
-  log('🏁 Начало запуска тестов STRIVE');
-  runNextTest();
+  // Отправляем в оба мессенджера параллельно
+  await Promise.all([
+    sendToTelegram(summary),
+    sendToMax(summary)
+  ]);
+}  
+
+// Запускаем тесты 
+log('🏁 Начало запуска тестов STRIVE');
+runNextTest();
