@@ -137,33 +137,27 @@ console.log('\n💾 Сохранение колонки...');
 try {
   // Клик по кнопке через XPath
   console.log('🔍 Клик по кнопке сохранения (XPath)...');
-  await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[3]/div/div[3]/div/div/div/span', {
+  await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[3]/div/div[2]/div/div/div', {
     state: 'visible',
     timeout: 10000
   });
-  await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[3]/div/div[3]/div/div/div/span');
+  await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[3]/div/div[2]/div/div/div');
   console.log('✅ Клик по кнопке сохранения выполнен');
   
 } catch (err) {
   console.warn('⚠️ Не найдено по XPath, пробуем резервные способы...');
   
   try {
-    // Резервный способ 1: по классу
-    await page.click('div.ghost-first.h-\\[60px\\]');
-    console.log('✅ Клик по div.ghost-first выполнен');
+    // Резервный способ: клик по XPath
+    await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[2]/div/div[1]/div[2]/div/div');
+    console.log('✅ Клик по резервному XPath выполнен');
     
   } catch (err2) {
-    try {
-      // Резервный способ 2: по data-атрибуту
-      await page.click('div[data-v-efdc4485]');
-      console.log('✅ Клик по div[data-v-efdc4485] выполнен');
-      
-    } catch (err3) {
-      console.error('❌ Не удалось сохранить колонку');
-      throw new Error('Не удалось сохранить колонку');
-    }
+    console.error('❌ Не удалось сохранить колонку');
+    throw new Error('Не удалось сохранить колонку');
   }
 }
+
 
 
 
