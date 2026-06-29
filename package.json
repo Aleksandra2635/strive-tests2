@@ -16,6 +16,8 @@
     "test:create_project": "node createProject.js",
     "test:create_column": "node createStages.js",
     "test:create_task": "node createTask.js",
+    "test:end_task": "node endTask.js",
+    "test:delete_task": "node deleteTask.js",
     "test:all": "node run-all-tests.js"
   },
   "keywords": [

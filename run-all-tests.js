@@ -97,6 +97,22 @@ const tests = [
     logs: []
   },
   { 
+    name: 'Завершение задачи', 
+    script: 'node endTask.js', 
+    successFile: 'task-ended.png',
+    duration: 0,
+    status: 'pending',
+    logs: []
+  },
+  { 
+    name: 'Удаление задачи', 
+    script: 'node deleteTask.js', 
+    successFile: 'task-deleted.png',
+    duration: 0,
+    status: 'pending',
+    logs: []
+  },
+  { 
     name: 'Удаление пользователя', 
     script: 'node deleteUserTest.js', 
     successFile: 'user-deleted.png',
