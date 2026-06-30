@@ -25,9 +25,9 @@ const { getBrowserOptions, getTimeouts } = require('./browserConfig');
       timeout: timeouts.navigation 
     });
 
-    // 2. Клик на "Запрос на демонстрацию" по XPath
-    console.log('Клик по кнопке "Запрос на демонстрацию"...');
-    await page.locator('xpath=/html/body/div[1]/div/div[2]/section/div/div[1]/div[1]/a[2]').click();
+    // 2. Клик на "Хочу демонстрацию" по XPath
+    console.log('Клик по кнопке "Хочу демонстрацию"...');
+    await page.locator('xpath=/html/body/div[1]/div/section[1]/div/div[1]/div[3]/button').click();
 
     // Ждем появления модального окна с использованием глобального таймаута селекторов
     await page.waitForSelector('input[placeholder="Имя"]', { 
@@ -49,7 +49,7 @@ const { getBrowserOptions, getTimeouts } = require('./browserConfig');
 
     // 5. Закрытие плашки куки (если появилась)
     try {
-      const acceptCookiesButton = page.locator('xpath=/html/body/div[1]/div/div[11]/div/div[2]/button[1]');
+      const acceptCookiesButton = page.locator('xpath=/html/body/div[1]/div/div[4]/div/div[2]/button[2]');
       // Для куки оставляем короткий таймаут, чтобы не ждать долго, если её нет
       await acceptCookiesButton.waitFor({ state: 'visible', timeout: 3000 });
       await acceptCookiesButton.click();
@@ -61,7 +61,7 @@ const { getBrowserOptions, getTimeouts } = require('./browserConfig');
 
     // 6. Клик на кнопку "Отправить"
     console.log('Клик по кнопке "Отправить"...');
-    await page.locator('xpath=/html/body/div[1]/div/div[10]/div[1]/div/form/button').last().click();
+    await page.locator('xpath=/html/body/div[1]/div/div[3]/div[1]/div/form/button').last().click();
 
     // 7. Ждем ответ от API и проверяем
     const apiResponse = await apiResponsePromise;
