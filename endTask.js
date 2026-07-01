@@ -79,42 +79,54 @@ async function completeTask() {
     await page.waitForTimeout(2000);
 
     // 4️⃣ Переход в задачу по XPath
-console.log('\n📝 Переход в задачу...');
+    console.log('\n📝 Переход в задачу...');
 
-try {
-  await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/div/div[2]/div[2]/p', {
-    state: 'visible',
-    timeout: 10000
-  });
-  await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/div/div[1]/div[2]/p');
-  console.log('✅ Переход в задачу (XPath) выполнен');
-  
-} catch (err) {
-  console.warn('⚠️ Не найдено по XPath, пробуем по тексту...');
-  
-  try {
-    // Резервный способ: по тексту задачи
-    await page.waitForSelector('p:has-text("Тестовая задача")', {
-      state: 'visible',
-      timeout: 10000
-    });
-    await page.click('p:has-text("Тестовая задача")');
-    console.log('✅ Переход в задачу (по тексту) выполнен');
-    
-  } catch (err2) {
-    console.warn('⚠️ Не найдено по тексту, пробуем по классу...');
-    
     try {
-      // Резервный способ: по классу
-      await page.click('.text-\\[\\#111012\\].whitespace-pre-wrap.text-\\[14px\\]');
-      console.log('✅ Переход в задачу (по классу) выполнен');
+      await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/div/div[2]/div[2]/p', {
+        state: 'visible',
+        timeout: 10000
+      });
+      await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/div/div[1]/div[2]/p');
+      console.log('✅ Переход в задачу (XPath) выполнен');
       
-    } catch (err3) {
-      console.error('❌ Не удалось найти задачу');
-      throw new Error('Задача не найдена');
+    } catch (err) {
+      console.warn('⚠️ Не найдено по XPath, пробуем альтернативный XPath...');
+
+      try {
+        await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/div/div[2]/div[2]', {
+          state: 'visible',
+          timeout: 10000
+        });
+        await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/div/div[2]/div[2]');
+        console.log('✅ Переход в задачу (альтернативный XPath) выполнен');
+        
+      } catch (err) {
+        console.warn('⚠️ Не найдено по альтернативному XPath, пробуем по тексту...');
+        
+        try {
+          // Резервный способ: по тексту задачи
+          await page.waitForSelector('p:has-text("Тестовая задача")', {
+            state: 'visible',
+            timeout: 10000
+          });
+          await page.click('p:has-text("Тестовая задача")');
+          console.log('✅ Переход в задачу (по тексту) выполнен');
+          
+        } catch (err2) {
+          console.warn('⚠️ Не найдено по тексту, пробуем по классу...');
+          
+          try {
+            // Резервный способ: по классу
+            await page.click('.text-\\[\\#111012\\].whitespace-pre-wrap.text-\\[14px\\]');
+            console.log('✅ Переход в задачу (по классу) выполнен');
+            
+          } catch (err3) {
+            console.error('❌ Не удалось найти задачу');
+            throw new Error('Задача не найдена');
+          }
+        }
+      }
     }
-  }
-}
 
     // Ожидание загрузки страницы задачи
     await page.waitForTimeout(2000);
