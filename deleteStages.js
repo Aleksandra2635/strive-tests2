@@ -191,31 +191,98 @@ try {
   // Ждём появления меню
   await page.waitForTimeout(1000);
   
-  // Точный XPath к кнопке "Удалить"
-  const deleteButtonXPath = '/html/body/div[2]/div[7]/div/div[10]/div';
+  console.log('🔍 Поиск кнопки "Удалить"...');
   
-  // JavaScript клик по точному XPath
-  console.log('🔧 JavaScript клик по "Удалить"...');
-  const clicked = await page.evaluate((xpath) => {
-    const result = document.evaluate(
-      xpath,
-      document,
-      null,
-      XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null
-    );
-    const element = result.singleNodeValue;
+  // Пробуем найти и кликнуть разными способами
+  const clicked = await page.evaluate(() => {
+    // Способ 1: Ищем по тексту "Удалить"
+    console.log('📌 Поиск по тексту "Удалить"...');
+    const allElements = Array.from(document.querySelectorAll('div, span, button'));
+    let deleteButton = null;
     
-    if (element) {
-      // Находим родительский элемент с cursor-pointer если нужно
-      let clickableElement = element;
-      const cursorParent = element.closest('[class*="cursor-pointer"]');
-      if (cursorParent) {
-        clickableElement = cursorParent;
+    for (let el of allElements) {
+      const text = el.textContent.trim();
+      // Проверяем что это именно "Удалить"
+      if (text === 'Удалить' || text === 'Удалить колонку') {
+        // Проверяем видимость
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight) {
+          deleteButton = el;
+          console.log('✅ Найдено по тексту:', el.tagName, el.className);
+          break;
+        }
+      }
+    }
+    
+    // Способ 2: Ищем по классу из скриншота
+    if (!deleteButton) {
+      console.log('📌 Поиск по классу...');
+      const classElements = document.querySelectorAll('.text-\\[13px\\].truncate.leading-\\[15px\\].font-roboto.grow');
+      for (let el of classElements) {
+        if (el.textContent.includes('Удалить')) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            deleteButton = el;
+            console.log('✅ Найдено по классу:', el.className);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Способ 3: Ищем по XPath
+    if (!deleteButton) {
+      console.log('📌 Поиск по XPath...');
+      const xpathResult = document.evaluate(
+        '/html/body/div[2]/div[7]/div/div[10]/div',
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+      );
+      const element = xpathResult.singleNodeValue;
+      if (element) {
+        deleteButton = element;
+        console.log('✅ Найдено по XPath');
+      }
+    }
+    
+    if (deleteButton) {
+      // Ищем элемент с cursor-pointer
+      let clickableElement = null;
+      
+      // Проверяем сам элемент
+      if (deleteButton.className && deleteButton.className.includes('cursor-pointer')) {
+        clickableElement = deleteButton;
+        console.log('✅ cursor-pointer на самом элементе');
+      }
+      
+      // Ищем родительский элемент с cursor-pointer
+      if (!clickableElement) {
+        const cursorParent = deleteButton.closest('[class*="cursor-pointer"]');
+        if (cursorParent) {
+          clickableElement = cursorParent;
+          console.log('✅ cursor-pointer на родителе');
+        }
+      }
+      
+      // Ищем дочерний элемент с cursor-pointer
+      if (!clickableElement) {
+        const cursorChild = deleteButton.querySelector('[class*="cursor-pointer"]');
+        if (cursorChild) {
+          clickableElement = cursorChild;
+          console.log('✅ cursor-pointer на дочернем элементе');
+        }
+      }
+      
+      // Если cursor-pointer не найден, используем сам элемент
+      if (!clickableElement) {
+        clickableElement = deleteButton;
+        console.log('⚠️ cursor-pointer не найден, используем сам элемент');
       }
       
       // Наводим курсор
-      clickableElement.scrollIntoView({ behavior: 'smooth' });
+      clickableElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       
       // Создаём событие наведения
       const hoverEvent = new MouseEvent('mouseenter', {
@@ -225,22 +292,36 @@ try {
       });
       clickableElement.dispatchEvent(hoverEvent);
       
+      // Дополнительное событие mouseover
+      const overEvent = new MouseEvent('mouseover', {
+        bubbles: true,
+        cancelable: true,
+        view: window
+      });
+      clickableElement.dispatchEvent(overEvent);
+      
       // Кликаем
       setTimeout(() => {
-        clickableElement.click();
-      }, 300);
+        const clickEvent = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window
+        });
+        clickableElement.dispatchEvent(clickEvent);
+      }, 500);
       
-      console.log('Clicked on:', clickableElement.tagName, clickableElement.className);
+      console.log('🖱️ Клик выполнен по:', clickableElement.tagName, clickableElement.className);
       return true;
     }
     
+    console.log('❌ Кнопка "Удалить" не найдена');
     return false;
-  }, deleteButtonXPath);
+  });
   
   if (clicked) {
     console.log('✅ Клик по "Удалить" выполнен');
   } else {
-    console.warn('⚠️ Элемент не найден по XPath');
+    console.warn('⚠️ Не найдено через JavaScript');
     throw new Error('Кнопка "Удалить" не найдена');
   }
   
