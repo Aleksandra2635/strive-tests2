@@ -116,28 +116,160 @@ async function deleteUserTest() {
       console.warn('⚠️ Меню профиля может быть открыто, но не виден элемент "Настройки"');
     }
 
-    // 7️⃣ Переход в настройки (ИСПРАВЛЕНО: используем предоставленный XPath)
-    console.log('\n⚙️ Переход в настройки...');
+    // 7️⃣ Переход в настройки
+console.log('\n⚙️ Переход в настройки...');
+
+let settingsClicked = false;
+
+// Способ 1: XPath (основной)
+try {
+  const xpathSelector = '/html/body/div[2]/div[1]/div/div/div[2]/div[1]/div[2]';
+  
+  console.log('🔍 Способ 1: Поиск по XPath...');
+  
+  await page.locator(`xpath=${xpathSelector}`).waitFor({ 
+    state: 'visible', 
+    timeout: 10000 
+  });
+  
+  await page.locator(`xpath=${xpathSelector}`).click();
+  console.log('✅ Клик по "Настройки" выполнен (по XPath)');
+  settingsClicked = true;
+  
+} catch (err) {
+  console.log('⚠️ XPath не сработал');
+}
+
+// Способ 2: По классам из скриншота
+if (!settingsClicked) {
+  try {
+    console.log('🔍 Способ 2: Поиск по классу...');
     
-    try {
-      // Используем предоставленный XPath для кнопки "Настройки"
-      const xpathSelector = '/html/body/div[2]/div[1]/div/div/div[1]/div[1]/div[2]';
+    await page.evaluate(() => {
+      const elements = document.querySelectorAll('.text-\\[13px\\].truncate.leading-\\[15px\\].font-roboto.grow');
       
-      console.log(`🔍 Поиск кнопки "Настройки" по XPath: ${xpathSelector}`);
+      for (let el of elements) {
+        if (el.textContent.trim() === 'Настройки') {
+          // Ищем cursor-pointer
+          let clickableElement = el.closest('[class*="cursor-pointer"]') || el;
+          
+          clickableElement.scrollIntoView({ behavior: 'smooth' });
+          
+          const hoverEvent = new MouseEvent('mouseenter', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          clickableElement.dispatchEvent(hoverEvent);
+          
+          setTimeout(() => {
+            clickableElement.click();
+          }, 300);
+          
+          return true;
+        }
+      }
+      return false;
+    });
+    
+    await page.waitForTimeout(500);
+    console.log('✅ Клик по "Настройки" выполнен (по классу)');
+    settingsClicked = true;
+    
+  } catch (err) {
+    console.log('⚠️ Класс не сработал');
+  }
+}
+
+// Способ 3: По тексту "Настройки"
+if (!settingsClicked) {
+  try {
+    console.log('🔍 Способ 3: Поиск по тексту...');
+    
+    await page.evaluate(() => {
+      const allElements = Array.from(document.querySelectorAll('div, span, button, a'));
       
-      // Ожидаем видимости элемента
-      await page.locator(`xpath=${xpathSelector}`).waitFor({ 
-        state: 'visible', 
-        timeout: 15000 
-      });
+      for (let el of allElements) {
+        const text = el.textContent.trim();
+        if (text === 'Настройки') {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            let clickableElement = el.closest('[class*="cursor-pointer"]') || el;
+            
+            clickableElement.scrollIntoView({ behavior: 'smooth' });
+            
+            const hoverEvent = new MouseEvent('mouseenter', {
+              bubbles: true,
+              cancelable: true,
+              view: window
+            });
+            clickableElement.dispatchEvent(hoverEvent);
+            
+            setTimeout(() => {
+              clickableElement.click();
+            }, 300);
+            
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+    
+    await page.waitForTimeout(500);
+    console.log('✅ Клик по "Настройки" выполнен (по тексту)');
+    settingsClicked = true;
+    
+  } catch (err) {
+    console.log('⚠️ Текст не сработал');
+  }
+}
+
+// Способ 4: По cursor-pointer с текстом "Настройки"
+if (!settingsClicked) {
+  try {
+    console.log('🔍 Способ 4: Поиск по cursor-pointer...');
+    
+    await page.evaluate(() => {
+      const cursorElements = document.querySelectorAll('[class*="cursor-pointer"]');
       
-      // Кликаем по элементу
-      await page.locator(`xpath=${xpathSelector}`).click();
-      console.log('✅ Клик по "Настройки" выполнен (по XPath)');
-    } catch (err) {
-      console.error('❌ Не удалось найти кнопку "Настройки"');
-      throw new Error('Не удалось найти кнопку "Настройки"');
-    }
+      for (let el of cursorElements) {
+        if (el.textContent.includes('Настройки')) {
+          el.scrollIntoView({ behavior: 'smooth' });
+          
+          const hoverEvent = new MouseEvent('mouseenter', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          el.dispatchEvent(hoverEvent);
+          
+          setTimeout(() => {
+            el.click();
+          }, 300);
+          
+          return true;
+        }
+      }
+      return false;
+    });
+    
+    await page.waitForTimeout(500);
+    console.log('✅ Клик по "Настройки" выполнен (cursor-pointer)');
+    settingsClicked = true;
+    
+  } catch (err) {
+    console.log('⚠️ cursor-pointer не сработал');
+  }
+}
+
+if (!settingsClicked) {
+  console.error('❌ Не удалось найти кнопку "Настройки"');
+  throw new Error('Не удалось найти кнопку "Настройки"');
+}
+
+// Небольшая задержка для загрузки страницы настроек
+await page.waitForTimeout(1000);
 
     // 8️⃣ Нажатие на "безопасность"
     console.log('\n🗑️ Нажатие на кнопку "безопасность"...');
