@@ -19,6 +19,7 @@
     "test:end_task": "node endTask.js",
     "test:delete_task": "node deleteTask.js",
     "test:delete_column": "node deleteStages.js",
+    "test:delete_project": "node deleteProject.js",
     "test:all": "node run-all-tests.js"
   },
   "keywords": [

@@ -121,6 +121,14 @@ const tests = [
     logs: []
   },
   { 
+    name: 'Удаление проекта', 
+    script: 'node deleteProject.js', 
+    successFile: 'project-deleted.png',
+    duration: 0,
+    status: 'pending',
+    logs: []
+  },
+  { 
     name: 'Удаление пользователя', 
     script: 'node deleteUserTest.js', 
     successFile: 'user-deleted.png',
