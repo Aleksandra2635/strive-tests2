@@ -128,6 +128,14 @@ const tests = [
     status: 'pending',
     logs: []
   },
+   { 
+    name: 'Удаление рабочего пространства', 
+    script: 'node deleteWorkspace.js', 
+    successFile: 'workspace-deleted.png',
+    duration: 0,
+    status: 'pending',
+    logs: []
+  },
   { 
     name: 'Удаление пользователя', 
     script: 'node deleteUserTest.js', 
