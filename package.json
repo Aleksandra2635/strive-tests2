@@ -20,7 +20,7 @@
     "test:delete_task": "node deleteTask.js",
     "test:delete_column": "node deleteStages.js",
     "test:delete_project": "node deleteProject.js",
-    "test:delete_space": "node deleteSpace.js",
+    "test:delete_space": "node deleteSpaces.js",
     "test:all": "node run-all-tests.js"
   },
   "keywords": [

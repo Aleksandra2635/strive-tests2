@@ -130,7 +130,7 @@ const tests = [
   },
    { 
     name: 'Удаление рабочего пространства', 
-    script: 'node deleteWorkspace.js', 
+    script: 'node deleteSpaces.js', 
     successFile: 'workspace-deleted.png',
     duration: 0,
     status: 'pending',
