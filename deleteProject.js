@@ -11,19 +11,17 @@ async function deleteProject() {
   console.log(`📧 Email: ${USER_EMAIL}`);
   console.log(`📦 Название проекта: ${PROJECT_NAME}`);
 
-  const browserOptions = getBrowserOptions();
-  console.log(`🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`);
+  const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
   
   const browser = await chromium.launch({
-  ...browserOptions,
-  headless: false,
-  args: ['--start-maximized'] // Разворачивает окно на весь экран монитора
-});
-
-const context = await browser.newContext({
-  ignoreHTTPSErrors: true,
-  viewport: null // null = использовать реальный размер экрана
-});
+    headless: isCI ? true : false,
+    args: isCI ? [] : ['--start-maximized']
+  });
+  
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    viewport: isCI ? { width: 1920, height: 1080 } : null
+  });
   
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
@@ -31,7 +29,6 @@ const context = await browser.newContext({
   // Массив для хранения ответов
   const responses = [];
   
-  // Слушаем все ответы
   page.on('response', response => {
     const url = response.url();
     const method = response.request().method();
@@ -44,13 +41,40 @@ const context = await browser.newContext({
   });
 
   try {
-    // 1️⃣ Вход в систему
+    // 1️⃣ Переход на страницу логина
     console.log('\n🌐 Открытие страницы входа...');
     await page.goto('https://app.striveapp.ru/login', {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     });
 
+    // 🔧 Исправление верстки на CI
+    if (isCI) {
+      console.log('🔧 CI режим: исправление верстки...');
+      
+      await page.evaluate(() => {
+        document.querySelectorAll('[class*="mx-auto"]').forEach(el => {
+          el.style.marginLeft = '0';
+          el.style.marginRight = '0';
+          el.style.maxWidth = '100%';
+        });
+        
+        document.querySelectorAll('[class*="justify-center"]').forEach(el => {
+          el.style.justifyContent = 'flex-start';
+        });
+        
+        document.querySelectorAll('[class*="max-w-"], [class*="w-\\["]').forEach(el => {
+          el.style.maxWidth = '100%';
+          el.style.width = '100%';
+        });
+        
+        console.log('CSS верстка исправлена для CI');
+      });
+      
+      await page.waitForTimeout(1000);
+    }
+
+    // 2️⃣ Вход в систему
     await page.waitForSelector('[name="email"]', { state: 'visible', timeout: 30000 });
     await page.fill('[name="email"]', USER_EMAIL);
     await page.fill('[name="password"]', USER_PASSWORD);
@@ -60,7 +84,7 @@ const context = await browser.newContext({
     await page.waitForURL(/(\/main|\/dashboard|\/workspace)/, { timeout: 45000 });
     console.log('✅ Вход выполнен!');
 
-    // 2️⃣ Переход в пространство по XPath
+    // 3️⃣ Переход в пространство по XPath
     console.log('\n📁 Переход в пространство...');
     
     try {
@@ -72,186 +96,160 @@ const context = await browser.newContext({
 
     await page.waitForTimeout(2000);
 
-// 3️⃣ Нажатие на три точки проекта
-console.log('\n⋯ Нажатие на меню проекта (три точки)...');
+    // 4️⃣ Нажатие на три точки проекта
+    console.log('\n⋯ Нажатие на меню проекта (три точки)...');
 
-try {
-  // Точный XPath к SVG иконке меню (три точки)
-  const menuSvgXPath = '/html/body/div[1]/div[1]/section/div/div/div/div/div[3]/div/div/div/div[2]/div/div/div[2]/a/div/div/div[2]/button/div/svg';
-  
-  // 1. Наводимся через cursor-pointer
-  console.log('🖱️ Наведение через cursor-pointer...');
-  
-  const hovered = await page.evaluate((xpath) => {
-    // Находим SVG по точному XPath
-    const svgResult = document.evaluate(
-      xpath,
-      document,
-      null,
-      XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null
-    );
-    const svgElement = svgResult.singleNodeValue;
+    // Точный XPath к SVG иконке меню (три точки)
+    const menuSvgXPath = '/html/body/div[1]/div[1]/section/div/div/div/div/div[3]/div/div/div/div[2]/div/div/div[2]/a/div/div/div[2]/button/div/svg';
     
-    if (svgElement) {
-      // Ищем родительский button.dynamic-button.cursor-pointer
-      let cursorElement = svgElement.closest('button.dynamic-button.cursor-pointer') || 
-                         svgElement.closest('button.cursor-pointer') || 
-                         svgElement.closest('[class*="cursor-pointer"]') || 
-                         svgElement.parentElement;
-      
-      // Прокручиваем к элементу
-      cursorElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      
-      // Создаём события наведения
-      cursorElement.dispatchEvent(new MouseEvent('mouseover', {
-        bubbles: true, cancelable: true, view: window
-      }));
-      cursorElement.dispatchEvent(new MouseEvent('mouseenter', {
-        bubbles: true, cancelable: true, view: window
-      }));
-      cursorElement.dispatchEvent(new MouseEvent('mousemove', {
-        bubbles: true, cancelable: true, view: window
-      }));
-      
-      console.log('Hovered on:', cursorElement.tagName, cursorElement.className?.substring(0, 80));
-      return true;
-    }
+    // 4.1. Наводимся через cursor-pointer
+    console.log('🖱️ Наведение через cursor-pointer...');
     
-    console.log('SVG element not found by XPath');
-    return false;
-  }, menuSvgXPath);
-  
-  if (hovered) {
-    console.log('✅ Наведение через cursor-pointer выполнено');
-  } else {
-    console.warn('⚠️ Элемент не найден по XPath, пробуем по классам...');
-    
-    // Резервный способ: поиск по уникальным классам
-    const foundByClass = await page.evaluate(() => {
-      // Ищем div с классом group-hover:visible invisible
-      const containers = document.querySelectorAll('div[class*="group-hover:visible"][class*="invisible"]');
+    const hovered = await page.evaluate((xpath) => {
+      const svgResult = document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+      );
+      const svgElement = svgResult.singleNodeValue;
       
-      for (let container of containers) {
-        // Ищем внутри button.dynamic-button.cursor-pointer
-        const button = container.querySelector('button.dynamic-button.cursor-pointer');
-        if (button) {
-          // Прокручиваем к кнопке
-          button.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-          
-          // Наводимся
-          button.dispatchEvent(new MouseEvent('mouseover', {
-            bubbles: true, cancelable: true, view: window
-          }));
-          button.dispatchEvent(new MouseEvent('mouseenter', {
-            bubbles: true, cancelable: true, view: window
-          }));
-          
-          console.log('Found by class:', button.className);
-          return true;
-        }
-      }
-      return false;
-    });
-    
-    if (foundByClass) {
-      console.log('✅ Наведение через классы выполнено');
-    } else {
-      throw new Error('Элемент не найден');
-    }
-  }
-  
-  // Ждём появления меню с тремя точками
-  await page.waitForTimeout(1500);
-  
-  // 2. JavaScript клик по точному XPath через cursor-pointer
-  console.log('🔧 JavaScript клик по трём точкам...');
-  
-  const menuClicked = await page.evaluate((xpath) => {
-    // Находим SVG по точному XPath
-    const result = document.evaluate(
-      xpath,
-      document,
-      null,
-      XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null
-    );
-    const svgElement = result.singleNodeValue;
-    
-    if (svgElement) {
-      // Ищем родительский button.dynamic-button.cursor-pointer
-      let clickableElement = svgElement.closest('button.dynamic-button.cursor-pointer') || 
-                            svgElement.closest('button.cursor-pointer') || 
-                            svgElement.closest('[class*="cursor-pointer"]') || 
-                            svgElement.parentElement;
-      
-      if (clickableElement) {
-        // Прокручиваем к элементу
-        clickableElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      if (svgElement) {
+        let cursorElement = svgElement.closest('button.dynamic-button.cursor-pointer') || 
+                           svgElement.closest('button.cursor-pointer') || 
+                           svgElement.closest('[class*="cursor-pointer"]') || 
+                           svgElement.parentElement;
         
-        // Создаём события наведения
-        clickableElement.dispatchEvent(new MouseEvent('mouseenter', {
+        cursorElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        
+        cursorElement.dispatchEvent(new MouseEvent('mouseover', {
           bubbles: true, cancelable: true, view: window
         }));
-        clickableElement.dispatchEvent(new MouseEvent('mouseover', {
+        cursorElement.dispatchEvent(new MouseEvent('mouseenter', {
+          bubbles: true, cancelable: true, view: window
+        }));
+        cursorElement.dispatchEvent(new MouseEvent('mousemove', {
           bubbles: true, cancelable: true, view: window
         }));
         
-        // Кликаем с задержкой
-        setTimeout(() => {
-          clickableElement.click();
-        }, 300);
-        
-        console.log('Clicked on menu:', clickableElement.tagName, clickableElement.className?.substring(0, 80));
+        console.log('Hovered on:', cursorElement.tagName, cursorElement.className?.substring(0, 80));
         return true;
       }
+      
+      console.log('SVG element not found by XPath');
+      return false;
+    }, menuSvgXPath);
+    
+    if (hovered) {
+      console.log('✅ Наведение через cursor-pointer выполнено');
+    } else {
+      console.warn('⚠️ Элемент не найден по XPath, пробуем по классам...');
+      
+      const foundByClass = await page.evaluate(() => {
+        const containers = document.querySelectorAll('div[class*="group-hover:visible"][class*="invisible"]');
+        
+        for (let container of containers) {
+          const button = container.querySelector('button.dynamic-button.cursor-pointer');
+          if (button) {
+            button.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            
+            button.dispatchEvent(new MouseEvent('mouseover', {
+              bubbles: true, cancelable: true, view: window
+            }));
+            button.dispatchEvent(new MouseEvent('mouseenter', {
+              bubbles: true, cancelable: true, view: window
+            }));
+            
+            console.log('Found by class:', button.className);
+            return true;
+          }
+        }
+        return false;
+      });
+      
+      if (foundByClass) {
+        console.log('✅ Наведение через классы выполнено');
+      } else {
+        throw new Error('Элемент не найден');
+      }
     }
     
-    console.log('SVG element not found for click');
-    return false;
-  }, menuSvgXPath);
-  
-  if (menuClicked) {
-    console.log('✅ Клик по меню проекта выполнен');
-  } else {
-    console.warn('⚠️ JavaScript клик не сработал, пробуем по классам...');
+    await page.waitForTimeout(1500);
     
-    // Резервный способ: клик по уникальным классам
-    const clickedByClass = await page.evaluate(() => {
-      // Ищем div с классом group-hover:visible invisible
-      const containers = document.querySelectorAll('div[class*="group-hover:visible"][class*="invisible"]');
+    // 4.2. JavaScript клик по точному XPath через cursor-pointer
+    console.log('🔧 JavaScript клик по трём точкам...');
+    
+    const menuClicked = await page.evaluate((xpath) => {
+      const result = document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+      );
+      const svgElement = result.singleNodeValue;
       
-      for (let container of containers) {
-        // Ищем внутри button.dynamic-button.cursor-pointer
-        const button = container.querySelector('button.dynamic-button.cursor-pointer');
-        if (button) {
-          button.click();
-          console.log('Clicked by class:', button.className);
+      if (svgElement) {
+        let clickableElement = svgElement.closest('button.dynamic-button.cursor-pointer') || 
+                              svgElement.closest('button.cursor-pointer') || 
+                              svgElement.closest('[class*="cursor-pointer"]') || 
+                              svgElement.parentElement;
+        
+        if (clickableElement) {
+          clickableElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          
+          clickableElement.dispatchEvent(new MouseEvent('mouseenter', {
+            bubbles: true, cancelable: true, view: window
+          }));
+          clickableElement.dispatchEvent(new MouseEvent('mouseover', {
+            bubbles: true, cancelable: true, view: window
+          }));
+          
+          setTimeout(() => {
+            clickableElement.click();
+          }, 300);
+          
+          console.log('Clicked on menu:', clickableElement.tagName, clickableElement.className?.substring(0, 80));
           return true;
         }
       }
+      
+      console.log('SVG element not found for click');
       return false;
-    });
+    }, menuSvgXPath);
     
-    if (clickedByClass) {
-      console.log('✅ Клик через классы выполнен');
+    if (menuClicked) {
+      console.log('✅ Клик по меню проекта выполнен');
     } else {
-      // Финальный резерв: обычный клик по XPath
-      console.warn('⚠️ Классы не сработали, пробуем обычный клик...');
-      await page.click(`xpath=${menuSvgXPath}`, { force: true, timeout: 5000 });
-      console.log('✅ Обычный клик по XPath выполнен');
+      console.warn('⚠️ JavaScript клик не сработал, пробуем по классам...');
+      
+      const clickedByClass = await page.evaluate(() => {
+        const containers = document.querySelectorAll('div[class*="group-hover:visible"][class*="invisible"]');
+        
+        for (let container of containers) {
+          const button = container.querySelector('button.dynamic-button.cursor-pointer');
+          if (button) {
+            button.click();
+            console.log('Clicked by class:', button.className);
+            return true;
+          }
+        }
+        return false;
+      });
+      
+      if (clickedByClass) {
+        console.log('✅ Клик через классы выполнен');
+      } else {
+        console.warn('⚠️ Классы не сработали, пробуем обычный клик...');
+        await page.click(`xpath=${menuSvgXPath}`, { force: true, timeout: 5000 });
+        console.log('✅ Обычный клик по XPath выполнен');
+      }
     }
-  }
-  
-} catch (err) {
-  console.error('❌ Не удалось открыть меню проекта:', err.message);
-  throw new Error('Меню проекта не найдено');
-}
 
-// Ждём появления меню
-await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000);
 
-    // 4️⃣ Нажатие на "Удалить проект"
+    // 5️⃣ Нажатие на "Удалить проект"
     console.log('\n🗑️ Нажатие на кнопку "Удалить проект"...');
 
     let deleteClicked = false;
@@ -431,10 +429,9 @@ await page.waitForTimeout(1000);
       throw new Error('Не удалось найти кнопку "Удалить проект"');
     }
 
-    // Ждём появления модального окна
     await page.waitForTimeout(1000);
 
-    // 5️⃣ Подтверждение удаления
+    // 6️⃣ Подтверждение удаления
     console.log('\n✅ Подтверждение удаления...');
     
     try {
@@ -458,11 +455,11 @@ await page.waitForTimeout(1000);
       }
     }
 
-    // 6️⃣ Ожидание обработки удаления
+    // 7️⃣ Ожидание обработки удаления
     console.log('\n⏳ Ожидание обработки удаления...');
     await page.waitForTimeout(3000);
 
-    // 7️⃣ Проверка PATCH запроса
+    // 8️⃣ Проверка PATCH запроса
     console.log('\n🔍 Проверка отправки PATCH запроса...');
     
     if (responses.length > 0) {
@@ -476,8 +473,6 @@ await page.waitForTimeout(1000);
         console.log(`📡 URL API: ${patchResponse.url}`);
         console.log(`📊 Статус: ${patchResponse.status} ${patchResponse.status === 200 ? '(OK)' : ''}`);
         
-        
-        // Проверяем что это API запрос на server.striveapp.ru
         if (patchResponse.url.includes('server.striveapp.ru') && 
             patchResponse.url.includes('/project-space-column')) {
           console.log('✅ API запрос корректный: PATCH на server.striveapp.ru/project-space-column');
@@ -485,7 +480,6 @@ await page.waitForTimeout(1000);
           console.warn(`⚠️ API URL не соответствует ожидаемому`);
         }
         
-        // Проверяем статус
         if (patchResponse.status === 200) {
           console.log('✅ Статус 200 OK - проект успешно удалён (отправлен в корзину)!');
         } else {
@@ -500,9 +494,23 @@ await page.waitForTimeout(1000);
       console.warn('⚠️ PATCH запрос не был перехвачен');
     }
 
+    // 9️⃣ Проверка удаления проекта на странице
+    console.log('\n🔍 Проверка удаления проекта на странице...');
     
+    try {
+      const projectExists = await page.isVisible(`div:has-text("${PROJECT_NAME}")`).catch(() => false);
+      
+      if (!projectExists) {
+        console.log('✅ Проект удалён и не отображается на странице!');
+      } else {
+        console.warn('⚠️ Проект всё ещё отображается на странице');
+      }
+      
+    } catch (err) {
+      console.warn('⚠️ Не удалось проверить удаление на странице');
+    }
 
-    // 9️⃣ Финальный скриншот
+    // 🔟 Финальный скриншот
     await page.screenshot({ path: 'project-deleted.png', fullPage: false });
     console.log('📸 Скриншот сохранён: project-deleted.png');
 
