@@ -2,7 +2,7 @@ name: 🕐 Ежедневные тесты StriveApp
 
 on:
   schedule:
-   - cron: '30 13 * * *'
+    - cron: "30 13 * * *"
   workflow_dispatch:
 
 jobs:
@@ -16,8 +16,8 @@ jobs:
       - name: ⚙️ Установка Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: 📦 Установка зависимостей
         run: npm ci
@@ -37,6 +37,8 @@ jobs:
           USER_EMAIL_PASSWORD: ${{ secrets.USER_EMAIL_PASSWORD }}
           MAX_BOT_TOKEN: ${{ secrets.MAX_BOT_TOKEN }}
           MAX_CHAT_ID: ${{ secrets.MAX_CHAT_ID }}
+          TEST_MESSAGES_CLEANUP_URL: ${{ secrets.TEST_MESSAGES_CLEANUP_URL }}
+          TEST_AUTOMATION_SECRET: ${{ secrets.TEST_AUTOMATION_SECRET }}
 
       - name: 📸 Сохранение артефактов
         if: always()
