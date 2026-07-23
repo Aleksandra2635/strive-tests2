@@ -14,131 +14,168 @@ function log(message) {
   fs.appendFileSync(logFile, line);
 }
 
+async function cleanupTestMessages() {
+  const cleanupUrl = process.env.TEST_MESSAGES_CLEANUP_URL;
+  const cleanupSecret = process.env.TEST_AUTOMATION_SECRET;
+
+  if (!cleanupUrl || !cleanupSecret) {
+    log('⚠️ Очистка тестовых сообщений не настроена');
+    return 'Очистка тестовых сообщений: результат получить не удалось.';
+  }
+
+  try {
+    const response = await fetch(cleanupUrl, {
+      method: 'POST',
+      headers: {
+        'x-test-automation-secret': cleanupSecret,
+      },
+      signal: AbortSignal.timeout(65000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Сервер вернул HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (typeof result?.message !== 'string' || !result.message.trim()) {
+      throw new Error('Сервер вернул некорректный результат');
+    }
+
+    log('✅ Очистка тестовых сообщений завершена');
+    return result.message;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log(`⚠️ Не удалось получить результат очистки: ${errorMessage}`);
+    return 'Очистка тестовых сообщений: результат получить не удалось.';
+  }
+}
+
 // Список тестов с метаданными
 const tests = [
-  { 
-    name: 'Доступность сайта', 
-    script: 'node siteAvailabilityTest.js', 
+  {
+    name: 'Доступность сайта',
+    script: 'node siteAvailabilityTest.js',
     successFile: 'site-available.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
+  {
     name: 'Запрос на демонстрацию',
-    script: 'node siteZaprosDem.js', 
+    script: 'node siteZaprosDem.js',
     successFile: 'zapros-demo-success.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Регистрация', 
-    script: 'node registration.js', 
+  {
+    name: 'Регистрация',
+    script: 'node registration.js',
     successFile: 'registration-success.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Логин', 
-    script: 'node login.js', 
+  {
+    name: 'Логин',
+    script: 'node login.js',
     successFile: 'login-success.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Оплата', 
-    script: 'node login_oplata_Test.js', 
+  {
+    name: 'Оплата',
+    script: 'node login_oplata_Test.js',
     successFile: 'payment-page.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Отмена заказа', 
-    script: 'node ordercancellation.js', 
+  {
+    name: 'Отмена заказа',
+    script: 'node ordercancellation.js',
     successFile: 'cancellation-confirmation.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Cоздание рабочего пространства', 
-    script: 'node createSpace.js', 
+  {
+    name: 'Cоздание рабочего пространства',
+    script: 'node createSpace.js',
     successFile: 'workspace-created.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Cоздание проекта', 
-    script: 'node createProject.js', 
+  {
+    name: 'Cоздание проекта',
+    script: 'node createProject.js',
     successFile: 'project-created.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Создание колонки', 
-    script: 'node createStages.js', 
+  {
+    name: 'Создание колонки',
+    script: 'node createStages.js',
     successFile: 'stages-created.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-   { 
-    name: 'Создание задачи', 
-    script: 'node createTask.js', 
+   {
+    name: 'Создание задачи',
+    script: 'node createTask.js',
     successFile: 'task-created.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Завершение задачи', 
-    script: 'node endTask.js', 
+  {
+    name: 'Завершение задачи',
+    script: 'node endTask.js',
     successFile: 'task-ended.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Удаление задачи', 
-    script: 'node deleteTask.js', 
+  {
+    name: 'Удаление задачи',
+    script: 'node deleteTask.js',
     successFile: 'task-deleted.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Удаление колонки', 
-    script: 'node deleteStages.js', 
+  {
+    name: 'Удаление колонки',
+    script: 'node deleteStages.js',
     successFile: 'stages-deleted.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Удаление проекта', 
-    script: 'node deleteProject.js', 
+  {
+    name: 'Удаление проекта',
+    script: 'node deleteProject.js',
     successFile: 'project-deleted.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-   { 
-    name: 'Удаление рабочего пространства', 
-    script: 'node deleteSpaces.js', 
+   {
+    name: 'Удаление рабочего пространства',
+    script: 'node deleteSpaces.js',
     successFile: 'workspace-deleted.png',
     duration: 0,
     status: 'pending',
     logs: []
   },
-  { 
-    name: 'Удаление пользователя', 
-    script: 'node deleteUserTest.js', 
+  {
+    name: 'Удаление пользователя',
+    script: 'node deleteUserTest.js',
     successFile: 'user-deleted.png',
     duration: 0,
     status: 'pending',
@@ -177,39 +214,39 @@ function runNextTest() {
 
   const test = tests[currentTestIndex];
   const testStart = Date.now();
-  
+
   log(`\n🚀 Запуск теста [${currentTestIndex + 1}/${tests.length}]: ${test.name}`);
-  
+
   const child = exec(test.script, { cwd: process.cwd() });
-  
+
   // Собираем логи из stdout и stderr каждого теста
   child.stdout.on('data', (data) => {
     const lines = data.toString().split('\n').filter(line => line.trim());
     test.logs.push(...lines);
     process.stdout.write(data);
   });
-  
+
   child.stderr.on('data', (data) => {
     const lines = data.toString().split('\n').filter(line => line.trim());
     test.logs.push(...lines);
     process.stderr.write(data);
   });
-  
+
   child.on('exit', (code) => {
     const duration = Math.round((Date.now() - testStart) / 1000);
     test.duration = duration;
     test.status = code === 0 ? 'passed' : 'failed';
-    
+
     if (code === 0) {
       log(`✅ Тест "${test.name}" успешно завершён (${duration} сек)`);
     } else {
       log(`❌ Тест "${test.name}" завершился с ошибкой (${duration} сек)`);
     }
-    
+
     currentTestIndex++;
     setTimeout(runNextTest, 1000);
   });
-  
+
   // Таймаут для каждого теста
   setTimeout(() => {
     if (test.status === 'pending') {
@@ -226,23 +263,25 @@ function runNextTest() {
 async function generateFinalReport() {
   if (isGeneratingReport) return;
   isGeneratingReport = true;
-  
+
   const totalTime = Math.round((Date.now() - startTime) / 1000);
   const passed = tests.filter(t => t.status === 'passed').length;
   const failed = tests.filter(t => t.status === 'failed').length;
-  
+  const cleanupResult = await cleanupTestMessages();
+
   // Формируем основной отчёт
   let report = `✅ Успешно: ${passed}\n`;
   report += `❌ Ошибок: ${failed}\n`;
   report += `⏱️ Всего времени: ${totalTime} сек\n\n`;
-  
+  report += `${cleanupResult}\n\n`;
+
   // Детали по каждому тесту
   report += '📋 Детали тестов:\n';
   tests.forEach((test, index) => {
     const statusIcon = test.status === 'passed' ? '✅' : '❌';
     report += `${statusIcon} ${index + 1}. ${test.name} — ${test.duration} сек\n`;
   });
-  
+
   // Подробные логи проваленных тестов
   const failedTests = tests.filter(t => t.status === 'failed');
   if (failedTests.length > 0) {
@@ -258,24 +297,24 @@ async function generateFinalReport() {
       });
     });
   }
-  
+
   // Итоговое сообщение
-  const summary = failed === 0 
+  const summary = failed === 0
     ? `🎉 ВСЕ ТЕСТЫ ПРОЙДЕНЫ УСПЕШНО!\n${report}`
     : `⚠️ НЕКОТОРЫЕ ТЕСТЫ ПРОВАЛЕНЫ (${failed}/${tests.length})\n${report}`;
-  
+
   log('\n' + '='.repeat(50));
   log('📊 ФИНАЛЬНЫЙ ОТЧЁТ ТЕСТИРОВАНИЯ STRIVE\n' + '='.repeat(50));
   log(summary);
   log('='.repeat(50) + '\n');
-  
+
   // Отправляем в оба мессенджера параллельно
   await Promise.all([
     sendToTelegram(summary),
     sendToMax(summary)
   ]);
-}  
+}
 
-// Запускаем тесты 
+// Запускаем тесты
 log('🏁 Начало запуска тестов STRIVE');
 runNextTest();
