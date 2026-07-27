@@ -65,57 +65,22 @@ async function ordercancellation() {
     console.log('✅ Вход успешно выполнен!');
     console.log(`🏠 Текущий URL: ${page.url()}`);
 
-    // 6️⃣ Переход в "Моя организация"
+        // 6️⃣ Переход в "Моя организация"
     console.log('\n🏢 Переход в раздел "Моя организация"...');
     
-    // Способ 1: По тексту ссылки/кнопки
-    try {
-      await page.waitForSelector('a:has-text("Моя организация"), button:has-text("Моя организация"), [data-testid*="organization"], [data-testid*="org"]', {
-        state: 'visible',
-        timeout: 20000
-      });
-      await page.click('a:has-text("Моя организация"), button:has-text("Моя организация")');
-      console.log('✅ Клик по "Моя организация" выполнен');
-    } catch (err) {
-      console.warn('⚠️ Не удалось найти "Моя организация" по тексту, пробуем другие варианты...');
-      
-      // Способ 2: По иконке организации (если есть)
-      try {
-        await page.waitForSelector('svg path[d*="organization"], svg path[d*="building"], [data-icon*="org"], [data-icon*="building"]', {
-          state: 'visible',
-          timeout: 10000
-        });
-        await page.click('svg path[d*="organization"], svg path[d*="building"], [data-icon*="org"]');
-        console.log('✅ Клик по иконке организации выполнен');
-      } catch (err2) {
-        // Способ 3: По меню профиля (раскрывающееся меню)
-        try {
-          console.log('🔍 Поиск меню профиля...');
-          await page.waitForSelector('[data-testid*="profile"], [data-testid*="user"], button[aria-label*="Профиль"], button[aria-label*="Меню"]', {
-            state: 'visible',
-            timeout: 10000
-          });
-          
-          // Кликаем по меню профиля
-          await page.click('[data-testid*="profile"], [data-testid*="user"], button[aria-label*="Профиль"]');
-          console.log('✅ Меню профиля открыто');
-          
-          // Ждём появления выпадающего меню
-          await page.waitForTimeout(1000);
-          
-          // Ищем "Моя организация" в выпадающем меню
-          await page.waitForSelector('text="Моя организация"', { state: 'visible', timeout: 10000 });
-          await page.click('text="Моя организация"');
-          console.log('✅ Клик по "Моя организация" в меню профиля выполнен');
-        } catch (err3) {
-          console.warn('⚠️ Не удалось найти "Моя организация" стандартными способами');
-          console.warn('💡 Попробуйте найти селектор вручную через DevTools (F12)');
-        }
-      }
-    }
-
-    // 7️⃣ Ожидание загрузки страницы "Моя организация"
-console.log('⏳ Ожидание загрузки страницы "Моя организация"...');
+    // Находим элемент по точному XPath и кликаем по нему
+    const orgLinkLocator = page.locator('xpath=/html/body/div[1]/div[1]/section/aside/div[1]/div[2]/div[1]/a[4]/div/div[2]');
+    
+    // Явно ждем, пока элемент станет видимым (до 15 секунд)
+    await orgLinkLocator.waitFor({ state: 'visible', timeout: 15000 });
+    
+    // Совершаем клик
+    await orgLinkLocator.click();
+    
+    console.log('✅ Клик по "Моя организация" выполнен');
+    
+    // Небольшая пауза для завершения анимации перехода или загрузки данных
+    await page.waitForTimeout(1000);
 
 // Ждём точного совпадения с нужным урлом
 try {

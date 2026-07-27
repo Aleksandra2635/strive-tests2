@@ -131,17 +131,17 @@ await page.fill('textarea[type="text"]', COLUMN_NAME);
 await page.waitForTimeout(500);
 console.log(`✅ Введено название: ${COLUMN_NAME}`);
 
- // 6️⃣ Сохранение колонки - клик по кнопке
+// 6️⃣ Сохранение колонки - клик по кнопке
 console.log('\n💾 Сохранение колонки...');
 
 try {
   // Клик по кнопке через XPath
   console.log('🔍 Клик по кнопке сохранения (XPath)...');
-  await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[3]/div/div[2]/div/div/div', {
+  await page.waitForSelector('/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[1]/div[2]/div', {
     state: 'visible',
     timeout: 10000
   });
-  await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[3]/div/div[2]/div/div/div');
+  await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[1]/div[2]/div');
   console.log('✅ Клик по кнопке сохранения выполнен');
   
 } catch (err) {
@@ -149,7 +149,7 @@ try {
   
   try {
     // Резервный способ: клик по XPath
-    await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[2]/div/div[1]/div[2]/div/div');
+    await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[2]');
     console.log('✅ Клик по резервному XPath выполнен');
     
   } catch (err2) {
@@ -157,6 +157,7 @@ try {
     throw new Error('Не удалось сохранить колонку');
   }
 }
+
 
 
 

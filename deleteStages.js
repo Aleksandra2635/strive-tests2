@@ -84,7 +84,7 @@ console.log('\n⋯ Нажатие на меню колонки (три точк�
 
 try {
   // XPath родительского контейнера колонки
-  const columnXPath = '/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[4]/div/div[1]/div[3]/div';
+  const columnXPath = '/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[2]/div/div[1]';
   
   // Наводим на колонку
   console.log('🖱️ Наведение на колонку...');
