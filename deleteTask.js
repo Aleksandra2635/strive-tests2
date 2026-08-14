@@ -97,30 +97,33 @@ async function deleteTask() {
     // Небольшая задержка для появления меню
     await page.waitForTimeout(1000);
 
-   // 5️⃣ Нажатие на "Удалить"
+ // 5️⃣ Нажатие на "Удалить"
 console.log('\n🗑️ Нажатие на кнопку "Удалить"...');
 
 try {
-  await page.waitForSelector('xpath=/html/body/div[2]/div[5]/div/div[7]/div[1]', {
-    state: 'visible',
-    timeout: 10000
-  });
-  await page.click('xpath=/html/body/div[2]/div[5]/div/div[7]/div[1]');
-  console.log('✅ Клик по кнопке "Удалить" (XPath) выполнен');
+  const deleteElement = page.locator('xpath=/html/body/div[2]/div[5]/div/div[8]/div[1]');
   
+  // Ждем, пока элемент станет видимым
+  await deleteElement.waitFor({ state: 'visible', timeout: 10000 });
+  
+  // Наводим курсор (имитация pointer) и кликаем
+  await deleteElement.hover();
+  await deleteElement.click();
+  
+  console.log('✅ Клик по кнопке "Удалить" (XPath) выполнен');
 } catch (err) {
   console.warn('⚠️ Не найдено по XPath, пробуем по тексту...');
   
   try {
-    await page.locator('div:has-text("Удалить")').first().click({ timeout: 15000 });
+    const fallback = page.getByText('Удалить', { exact: true });
+    await fallback.hover();
+    await fallback.click({ timeout: 15000 });
     console.log('✅ Клик по "Удалить" (по тексту) выполнен');
-    
   } catch (err2) {
     console.error('❌ Не удалось найти кнопку "Удалить"');
     throw new Error('Кнопка "Удалить" не найдена');
   }
 }
-
 
 // Небольшая задержка для появления модального окна
 await page.waitForTimeout(1000);

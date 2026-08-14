@@ -25,9 +25,9 @@ const { getBrowserOptions, getTimeouts } = require('./browserConfig');
       timeout: timeouts.navigation 
     });
 
-    // 2. Клик на "Хочу демонстрацию" по XPath
+    // 2. Клик на "Хочу демонстрацию"
     console.log('Клик по кнопке "Хочу демонстрацию"...');
-    await page.locator('xpath=/html/body/div[1]/div/section[1]/div/div[1]/div[3]/button').click();
+    await page.getByRole('button', { name: 'Хочу демонстрацию' }).click();
 
     // Ждем появления модального окна с использованием глобального таймаута селекторов
     await page.waitForSelector('input[placeholder="Имя"]', { 
@@ -46,22 +46,27 @@ const { getBrowserOptions, getTimeouts } = require('./browserConfig');
     await phoneInput.click();
     await phoneInput.fill('+79999999999');
     console.log('Введен телефон: +79999999999');
+    
+// 5. Закрытие плашки куки (если появилась)
+try {
+  console.log('🔍 Поиск кнопки закрытия плашки куки...');
+  
+  // Ищем кнопку, внутри которой есть SVG с характерным "крестиком"
+  const acceptCookiesButton = page.locator('button:has(svg path[d*="M1 15L15 1"])');
+  
+  // Короткий таймаут: если плашки нет, не задерживаем тест надолго
+  await acceptCookiesButton.first().waitFor({ state: 'visible', timeout: 3000 });
+  await acceptCookiesButton.first().click();
+  
+  console.log('✅ Плашка куки закрыта');
+  await page.waitForTimeout(500); // Небольшая пауза, чтобы плашка успела исчезнуть из DOM
+} catch (error) {
+  console.log('⚠️ Плашка куки не появилась, пропускаем');
+}
 
-    // 5. Закрытие плашки куки (если появилась)
-    try {
-      const acceptCookiesButton = page.locator('xpath=/html/body/div[1]/div/div[4]/div/div[2]/button[2]');
-      // Для куки оставляем короткий таймаут, чтобы не ждать долго, если её нет
-      await acceptCookiesButton.waitFor({ state: 'visible', timeout: 3000 });
-      await acceptCookiesButton.click();
-      console.log('✅ Плашка куки закрыта');
-      await page.waitForTimeout(500);
-    } catch (error) {
-      console.log('⚠️ Плашка куки не появилась, пропускаем');
-    }
-
-    // 6. Клик на кнопку "Отправить"
-    console.log('Клик по кнопке "Отправить"...');
-    await page.locator('xpath=/html/body/div[1]/div/div[3]/div[1]/div/form/button').last().click();
+   // 6. Клик на кнопку "Отправить"
+   console.log('Клик по кнопке "Отправить"...');
+   await page.getByRole('button', { name: 'Отправить' }).click();
 
     // 7. Ждем ответ от API и проверяем
     const apiResponse = await apiResponsePromise;
