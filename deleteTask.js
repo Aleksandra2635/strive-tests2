@@ -5,254 +5,881 @@ require('dotenv').config();
 async function deleteTask() {
   const USER_EMAIL = process.env.USER_EMAIL;
   const USER_PASSWORD = process.env.USER_PASSWORD;
+  const TASK_NAME = 'Тестовая задача — удаление';
 
   console.log('🚀 Запуск теста удаления задачи...');
   console.log(`📧 Email: ${USER_EMAIL}`);
+  console.log(`📝 Задача: ${TASK_NAME}`);
 
   const browserOptions = getBrowserOptions();
-  console.log(`🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`);
-  
+
+  console.log(
+    `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
+  );
+
   const browser = await chromium.launch(browserOptions);
-  
+
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
-    viewport: { width: 1920, height: 1080 }
+    viewport: {
+      width: 1920,
+      height: 1080
+    }
   });
-  
+
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
 
-  // Массив для хранения ответов
   const responses = [];
-  
-  // Слушаем все ответы
+
   page.on('response', response => {
     const url = response.url();
     const method = response.request().method();
     const status = response.status();
-    
-    if (url.includes('/tasks/') && url.includes('/archive') && method === 'PATCH') {
-      responses.push({ url, method, status, timestamp: new Date() });
-      console.log(`📡 Перехвачен ответ: ${method} ${url} → ${status}`);
+
+    if (
+      method === 'PATCH' &&
+      url.includes('/tasks/') &&
+      url.includes('/archive')
+    ) {
+      responses.push({
+        url,
+        method,
+        status,
+        timestamp: new Date()
+      });
+
+      console.log(
+        `📡 Перехвачен ответ: ${method} ${url} → ${status}`
+      );
     }
   });
 
   try {
-    // 1️⃣ Вход в систему
+    // 1️⃣ Авторизация
     console.log('\n🌐 Открытие страницы входа...');
+
     await page.goto('https://app.striveapp.ru/login', {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     });
 
-    await page.waitForSelector('[name="email"]', { state: 'visible', timeout: 30000 });
+    await page.locator('[name="email"]').waitFor({
+      state: 'visible',
+      timeout: 30000
+    });
+
     await page.fill('[name="email"]', USER_EMAIL);
     await page.fill('[name="password"]', USER_PASSWORD);
-    await page.click('button[type="submit"]');
+
+    console.log('🖱️ Нажатие кнопки "Продолжить"...');
+
+    await page.locator('button[type="submit"]').click();
 
     console.log('⏳ Ожидание успешного входа...');
-    await page.waitForURL(/(\/main|\/dashboard|\/workspace)/, { timeout: 45000 });
+
+    await page.waitForURL(
+      /\/main|\/dashboard|\/workspace/,
+      {
+        timeout: 45000
+      }
+    );
+
     console.log('✅ Вход выполнен!');
+    console.log(`🏠 Текущий URL: ${page.url()}`);
 
-    // 2️⃣ Переход в пространство по XPath
-    console.log('\n📁 Переход в пространство...');
-    
-    try {
-      await page.click('xpath=/html/body/div[1]/div[1]/section/aside/div[1]/div[2]/div[2]/div[1]/div/div[2]/a[1]/div/div[2]');
-      console.log('✅ Клик по пространству (XPath) выполнен');
-    } catch (err) {
-      console.warn('⚠️ Не найдено по XPath');
-    }
+    // 2️⃣ Поиск пространства
+    console.log('\n📁 Поиск пространства...');
 
-    await page.waitForTimeout(2000);
+    const spaceLinks = page.locator(
+      'a[href*="/spaces/"]'
+    );
 
-    // 3️⃣ Переход в проект по XPath
-    console.log('\n📂 Переход в проект...');
-    
-    try {
-      await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div/div/div[3]/div/div/div/div[2]/div/div/div/a/div/div/div[1]/div[2]/div[1]');
-      console.log('✅ Клик по проекту (XPath) выполнен');
-    } catch (err) {
-      console.warn('⚠️ Не найдено по XPath');
-    }
+    await spaceLinks.first().waitFor({
+      state: 'visible',
+      timeout: 20000
+    });
 
-    await page.waitForTimeout(2000);
+    const spaceCount = await spaceLinks.count();
 
-    // 4️⃣ Нажатие на три точки на задаче
-    console.log('\n⋯ Нажатие на меню задачи (три точки)...');
-    
-    try {
-      await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/div/div[1]/div[1]/div', {
-        state: 'visible',
-        timeout: 10000
-      });
-      await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[2]/div/div/div[1]/div[1]/div');
-      console.log('✅ Клик по меню задачи выполнен');
-      
-    } catch (err) {
-      console.error('❌ Не удалось найти меню задачи');
-      throw new Error('Меню задачи не найдено');
-    }
+    console.log(
+      `🔎 Найдено ссылок, содержащих /spaces/: ${spaceCount}`
+    );
 
-    // Небольшая задержка для появления меню
-    await page.waitForTimeout(1000);
+    let projectsHref = null;
+    let boardHref = null;
 
- // 5️⃣ Нажатие на "Удалить"
-console.log('\n🗑️ Нажатие на кнопку "Удалить"...');
+    for (let i = 0; i < spaceCount; i++) {
+      const href = await spaceLinks
+        .nth(i)
+        .getAttribute('href');
 
-try {
-  const deleteElement = page.locator('xpath=/html/body/div[2]/div[5]/div/div[8]/div[1]');
-  
-  // Ждем, пока элемент станет видимым
-  await deleteElement.waitFor({ state: 'visible', timeout: 10000 });
-  
-  // Наводим курсор (имитация pointer) и кликаем
-  await deleteElement.hover();
-  await deleteElement.click();
-  
-  console.log('✅ Клик по кнопке "Удалить" (XPath) выполнен');
-} catch (err) {
-  console.warn('⚠️ Не найдено по XPath, пробуем по тексту...');
-  
-  try {
-    const fallback = page.getByText('Удалить', { exact: true });
-    await fallback.hover();
-    await fallback.click({ timeout: 15000 });
-    console.log('✅ Клик по "Удалить" (по тексту) выполнен');
-  } catch (err2) {
-    console.error('❌ Не удалось найти кнопку "Удалить"');
-    throw new Error('Кнопка "Удалить" не найдена');
-  }
-}
+      if (!href) {
+        continue;
+      }
 
-// Небольшая задержка для появления модального окна
-await page.waitForTimeout(1000);
+      console.log(`   🔗 ${href}`);
 
-    // Небольшая задержка для появления модального окна
-    await page.waitForTimeout(1000);
+      if (
+        /\/spaces\/[^/]+\/projects\/?$/.test(href) &&
+        !projectsHref
+      ) {
+        projectsHref = href;
+      }
 
-    // 6️⃣ Подтверждение удаления (клик по кнопке подтверждения)
-    console.log('\n✅ Подтверждение удаления...');
-    
-    try {
-      await page.waitForSelector('button#modalBoxSubmitButton', {
-        state: 'visible',
-        timeout: 10000
-      });
-      await page.click('button#modalBoxSubmitButton');
-      console.log('✅ Подтверждение удаления выполнено');
-      
-    } catch (err) {
-      console.warn('⚠️ Не найдено по ID, пробуем по классу...');
-      
-      try {
-        await page.click('button[type="submit"].focus\\:outline-none.inline-flex');
-        console.log('✅ Подтверждение удаления (по классу) выполнено');
-        
-      } catch (err2) {
-        console.error('❌ Не удалось найти кнопку подтверждения');
-        throw new Error('Кнопка подтверждения не найдена');
+      if (
+        href.includes('/tasks') &&
+        !boardHref
+      ) {
+        boardHref = href;
       }
     }
 
-    // 7️⃣ Ожидание обработки удаления
-    console.log('\n⏳ Ожидание обработки удаления...');
-    await page.waitForTimeout(3000);
-
-    // 8️⃣ Проверка PATCH запроса
-    console.log('\n🔍 Проверка отправки PATCH запроса...');
-    
-    if (responses.length > 0) {
-      const patchResponse = responses.find(r => 
-        r.method === 'PATCH' && 
-        r.url.includes('/tasks/') && 
-        r.url.includes('/archive')
+    // 3️⃣ Переход на доску проекта
+    if (boardHref) {
+      console.log(
+        '\n📂 Найдена прямая ссылка на доску проекта'
       );
-      
-      if (patchResponse) {
-        console.log(`✅ PATCH запрос был отправлен!`);
-        console.log(`📡 URL API: ${patchResponse.url}`);
-        console.log(`📊 Статус: ${patchResponse.status} ${patchResponse.status === 200 ? '(OK)' : ''}`);
-        
-        // Извлекаем ID задачи из URL
-        const taskIdMatch = patchResponse.url.match(/\/tasks\/(\d+)\/archive/);
-        if (taskIdMatch) {
-          console.log(`🆔 ID задачи: ${taskIdMatch[1]}`);
+
+      console.log(`🔗 ${boardHref}`);
+
+      await page.goto(
+        new URL(
+          boardHref,
+          'https://app.striveapp.ru'
+        ).href,
+        {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000
         }
-        
-        // Проверяем что это API запрос на server.striveapp.ru
-        if (patchResponse.url.includes('server.striveapp.ru') && 
-            patchResponse.url.includes('/tasks/') && 
-            patchResponse.url.includes('/archive')) {
-          console.log('✅ API запрос корректный: PATCH на server.striveapp.ru/tasks/{id}/archive');
-        } else {
-          console.warn(`⚠️ API URL не соответствует ожидаемому`);
+      );
+
+    } else if (projectsHref) {
+      console.log(
+        '\n📁 Переход к списку проектов...'
+      );
+
+      console.log(`🔗 ${projectsHref}`);
+
+      await page.goto(
+        new URL(
+          projectsHref,
+          'https://app.striveapp.ru'
+        ).href,
+        {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000
         }
-        
-        // Проверяем статус
-        if (patchResponse.status === 200) {
-          console.log('✅ Статус 200 OK - задача успешно удалена (отправлена в корзину)!');
-        } else {
-          console.warn(`⚠️ Ожидался статус 200, получен: ${patchResponse.status}`);
-        }
-        
-      } else {
-        console.warn('⚠️ PATCH запрос на /tasks/{id}/archive не найден');
+      );
+
+      console.log(
+        `📍 URL пространства: ${page.url()}`
+      );
+
+      console.log('\n📂 Поиск проекта...');
+
+      const projectLinks = page.locator(
+        'a[href*="/spaces/"][href*="/tasks"]'
+      );
+
+      await projectLinks.first().waitFor({
+        state: 'visible',
+        timeout: 20000
+      });
+
+      const projectHref = await projectLinks
+        .first()
+        .getAttribute('href');
+
+      if (!projectHref) {
+        throw new Error(
+          'Не удалось получить ссылку на проект'
+        );
       }
-      
+
+      console.log(
+        `🔗 Найдена доска проекта: ${projectHref}`
+      );
+
+      await page.goto(
+        new URL(
+          projectHref,
+          'https://app.striveapp.ru'
+        ).href,
+        {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000
+        }
+      );
+
     } else {
-      console.warn('⚠️ PATCH запрос не был перехвачен');
+      throw new Error(
+        'Не удалось найти пространство или проект'
+      );
     }
 
-    // 9️⃣ Проверка удаления задачи на странице
-    console.log('\n🔍 Проверка удаления задачи на странице...');
-    
+    console.log('✅ Доска проекта открыта');
+    console.log(`📍 URL проекта: ${page.url()}`);
+
+    // 4️⃣ Ждём загрузку доски
+    console.log(
+      '\n⏳ Ожидание полной загрузки доски...'
+    );
+
+    const BOARD_LOAD_TIMEOUT = 30000;
+    const CHECK_INTERVAL = 500;
+    const startTime = Date.now();
+
+    let addTask = null;
+
+    while (
+      Date.now() - startTime <
+      BOARD_LOAD_TIMEOUT
+    ) {
+      const candidates = page.getByText(
+        'Добавить задачу',
+        {
+          exact: true
+        }
+      );
+
+      const count = await candidates.count();
+
+      for (let i = 0; i < count; i++) {
+        const candidate = candidates.nth(i);
+
+        if (await candidate.isVisible()) {
+          addTask = candidate;
+          break;
+        }
+      }
+
+      if (addTask) {
+        break;
+      }
+
+      await page.waitForTimeout(
+        CHECK_INTERVAL
+      );
+    }
+
+    if (!addTask) {
+      throw new Error(
+        'Доска не загрузилась: "Добавить задачу" не стала видимой'
+      );
+    }
+
+    console.log(
+      '✅ Доска полностью загрузилась'
+    );
+
+    // 5️⃣ Создание задачи для удаления
+    console.log(
+      '\n➕ Создание задачи для удаления...'
+    );
+
+    await addTask.click();
+
+    console.log(
+      '✅ Клик по "Добавить задачу" выполнен'
+    );
+
+    let taskInput = page.locator(
+      'textarea[type="text"]:visible'
+    );
+
+    if (
+      (await taskInput.count()) === 0
+    ) {
+      taskInput = page
+        .locator('textarea:visible')
+        .first();
+    }
+
+    await taskInput.waitFor({
+      state: 'visible',
+      timeout: 10000
+    });
+
+    await taskInput.fill(TASK_NAME);
+
+    console.log(
+      `✅ Введено название: ${TASK_NAME}`
+    );
+
+    // 6️⃣ Сохранение задачи
+    console.log(
+      '\n💾 Сохранение созданной задачи...'
+    );
+
+    let createTaskResponse = null;
+
     try {
-      // Ждём немного для обновления страницы
-      await page.waitForTimeout(2000);
-      console.log('✅ Страница обновлена');
-      
+      [createTaskResponse] =
+        await Promise.all([
+          page.waitForResponse(
+            response => {
+              const url = response.url();
+              const method =
+                response.request().method();
+
+              return (
+                method === 'POST' &&
+                url.includes('/tasks')
+              );
+            },
+            {
+              timeout: 15000
+            }
+          ),
+
+          taskInput.press('Enter')
+        ]);
+
+      console.log(
+        '✅ Задача сохранена через Enter'
+      );
+
     } catch (err) {
-      console.warn('⚠️ Не удалось проверить удаление на странице');
+      console.warn(
+        '⚠️ После Enter POST не получен, пробуем blur'
+      );
+
+      const responsePromise =
+        page.waitForResponse(
+          response => {
+            const url = response.url();
+            const method =
+              response.request().method();
+
+            return (
+              method === 'POST' &&
+              url.includes('/tasks')
+            );
+          },
+          {
+            timeout: 15000
+          }
+        );
+
+      await page.locator('body').click({
+        position: {
+          x: 100,
+          y: 100
+        }
+      });
+
+      createTaskResponse =
+        await responsePromise;
+
+      console.log(
+        '✅ Задача сохранена после потери фокуса'
+      );
     }
 
-    // 🔟 Финальный скриншот
-    await page.screenshot({ path: 'task-deleted.png', fullPage: false });
-    console.log('📸 Скриншот сохранён: task-deleted.png');
+    const createStatus =
+      createTaskResponse.status();
 
-    console.log('\n✨ Задача успешно удалена!');
+    console.log(
+      `📊 Статус создания задачи: ${createStatus}`
+    );
+
+    if (
+      createStatus < 200 ||
+      createStatus >= 300
+    ) {
+      throw new Error(
+        `Сервер вернул HTTP ${createStatus} при создании задачи`
+      );
+    }
+
+    console.log(
+      '✅ Задача для удаления создана'
+    );
+
+    // 7️⃣ Ищем созданную задачу
+    console.log(
+      `\n🔎 Поиск созданной задачи "${TASK_NAME}"...`
+    );
+
+    const taskText = page.getByText(
+      TASK_NAME,
+      {
+        exact: true
+      }
+    );
+
+    let taskElement = null;
+
+    const taskSearchStart = Date.now();
+
+    while (
+      Date.now() - taskSearchStart <
+      20000
+    ) {
+      const taskCount =
+        await taskText.count();
+
+      for (
+        let i = 0;
+        i < taskCount;
+        i++
+      ) {
+        const candidate =
+          taskText.nth(i);
+
+        if (await candidate.isVisible()) {
+          taskElement = candidate;
+          break;
+        }
+      }
+
+      if (taskElement) {
+        break;
+      }
+
+      await page.waitForTimeout(500);
+    }
+
+    if (!taskElement) {
+      throw new Error(
+        `Созданная задача "${TASK_NAME}" не найдена`
+      );
+    }
+
+    console.log(
+      `✅ Задача "${TASK_NAME}" найдена`
+    );
+
+    // 8️⃣ Ищем карточку задачи
+    console.log(
+      '\n🔎 Поиск карточки задачи...'
+    );
+
+    let taskCard = taskElement;
+
+    for (let i = 0; i < 8; i++) {
+      const parent = taskCard.locator('..');
+
+      if ((await parent.count()) === 0) {
+        break;
+      }
+
+      taskCard = parent;
+
+      const text =
+        await taskCard
+          .innerText()
+          .catch(() => '');
+
+      if (
+        text.includes(TASK_NAME)
+      ) {
+        const interactiveCount =
+          await taskCard.locator(
+            'button, [role="button"], svg'
+          ).count();
+
+        if (interactiveCount > 0) {
+          break;
+        }
+      }
+    }
+
+    console.log(
+      '✅ Контейнер задачи найден'
+    );
+
+    // 9️⃣ Поиск меню задачи
+    console.log(
+      '\n⋯ Поиск меню задачи...'
+    );
+
+    let menuButton = null;
+
+    const possibleMenuButtons = [
+      taskCard.locator(
+        'button[aria-label*="меню" i]'
+      ),
+
+      taskCard.locator(
+        '[role="button"][aria-label*="меню" i]'
+      ),
+
+      taskCard.locator(
+        'button:has(svg)'
+      ),
+
+      taskCard.locator(
+        '[role="button"]:has(svg)'
+      )
+    ];
+
+    for (const locator of possibleMenuButtons) {
+      const locatorCount =
+        await locator.count();
+
+      for (
+        let i = locatorCount - 1;
+        i >= 0;
+        i--
+      ) {
+        const candidate =
+          locator.nth(i);
+
+        if (await candidate.isVisible()) {
+          menuButton = candidate;
+          break;
+        }
+      }
+
+      if (menuButton) {
+        break;
+      }
+    }
+
+    if (!menuButton) {
+      const svgParents =
+        taskCard.locator(
+          'div:has(> svg)'
+        );
+
+      const svgParentsCount =
+        await svgParents.count();
+
+      for (
+        let i = svgParentsCount - 1;
+        i >= 0;
+        i--
+      ) {
+        const candidate =
+          svgParents.nth(i);
+
+        if (await candidate.isVisible()) {
+          menuButton = candidate;
+          break;
+        }
+      }
+    }
+
+    if (!menuButton) {
+      throw new Error(
+        'Не удалось найти меню созданной задачи'
+      );
+    }
+
+    await menuButton.click();
+
+    console.log(
+      '✅ Меню задачи открыто'
+    );
+
+    // 🔟 Поиск пункта "Удалить"
+    console.log(
+      '\n🗑️ Поиск пункта "Удалить"...'
+    );
+
+    const deleteCandidates =
+      page.getByText(
+        'Удалить',
+        {
+          exact: true
+        }
+      );
+
+    let deleteButton = null;
+
+    const deleteCount =
+      await deleteCandidates.count();
+
+    for (
+      let i = 0;
+      i < deleteCount;
+      i++
+    ) {
+      const candidate =
+        deleteCandidates.nth(i);
+
+      if (await candidate.isVisible()) {
+        deleteButton = candidate;
+        break;
+      }
+    }
+
+    if (!deleteButton) {
+      throw new Error(
+        'Не удалось найти видимый пункт "Удалить"'
+      );
+    }
+
+    await deleteButton.click();
+
+    console.log(
+      '✅ Клик по "Удалить" выполнен'
+    );
+
+    // 1️⃣1️⃣ Подтверждение удаления
+    console.log(
+      '\n✅ Поиск кнопки подтверждения удаления...'
+    );
+
+    let confirmButton = null;
+
+    const confirmCandidates = [
+      page.locator(
+        '#modalBoxSubmitButton'
+      ),
+
+      page.getByRole(
+        'button',
+        {
+          name: 'Удалить',
+          exact: true
+        }
+      ),
+
+      page.getByRole(
+        'button',
+        {
+          name: /подтвердить/i
+        }
+      )
+    ];
+
+    for (const locator of confirmCandidates) {
+      const locatorCount =
+        await locator.count();
+
+      for (
+        let i = 0;
+        i < locatorCount;
+        i++
+      ) {
+        const candidate =
+          locator.nth(i);
+
+        if (await candidate.isVisible()) {
+          confirmButton = candidate;
+          break;
+        }
+      }
+
+      if (confirmButton) {
+        break;
+      }
+    }
+
+    if (!confirmButton) {
+      throw new Error(
+        'Не удалось найти кнопку подтверждения удаления'
+      );
+    }
+
+    console.log(
+      '✅ Кнопка подтверждения найдена'
+    );
+
+    // 1️⃣2️⃣ Удаляем + ждём PATCH
+    console.log(
+      '\n📡 Подтверждаем удаление и ждём PATCH...'
+    );
+
+    const [patchResponse] =
+      await Promise.all([
+        page.waitForResponse(
+          response => {
+            const url =
+              response.url();
+
+            const method =
+              response
+                .request()
+                .method();
+
+            return (
+              method === 'PATCH' &&
+              url.includes('/tasks/') &&
+              url.includes('/archive')
+            );
+          },
+          {
+            timeout: 15000
+          }
+        ),
+
+        confirmButton.click()
+      ]);
+
+    console.log(
+      '✅ Подтверждение удаления выполнено'
+    );
+
+    // 1️⃣3️⃣ Проверка API
+    const status =
+      patchResponse.status();
+
+    const apiUrl =
+      patchResponse.url();
+
+    console.log(
+      '\n🔍 Проверка PATCH запроса...'
+    );
+
+    console.log(
+      `📡 URL API: ${apiUrl}`
+    );
+
+    console.log(
+      `📊 HTTP статус: ${status}`
+    );
+
+    const taskIdMatch =
+      apiUrl.match(
+        /\/tasks\/([^/]+)\/archive/
+      );
+
+    if (taskIdMatch) {
+      console.log(
+        `🆔 ID задачи: ${taskIdMatch[1]}`
+      );
+    }
+
+    if (
+      status >= 200 &&
+      status < 300
+    ) {
+      console.log(
+        '✅ Сервер успешно отправил задачу в корзину'
+      );
+    } else {
+      throw new Error(
+        `Сервер вернул HTTP ${status} при удалении задачи`
+      );
+    }
+
+    // 1️⃣4️⃣ Проверка журнала responses
+    const storedPatch =
+      responses.find(
+        r =>
+          r.method === 'PATCH' &&
+          r.url.includes('/tasks/') &&
+          r.url.includes('/archive')
+      );
+
+    if (storedPatch) {
+      console.log(
+        '✅ PATCH присутствует в журнале responses'
+      );
+    }
+
+    // 1️⃣5️⃣ Проверка исчезновения задачи
+    console.log(
+      '\n🔍 Проверка исчезновения задачи с доски...'
+    );
+
+    try {
+      await taskText
+        .first()
+        .waitFor({
+          state: 'hidden',
+          timeout: 10000
+        });
+
+      console.log(
+        `✅ Задача "${TASK_NAME}" исчезла с доски`
+      );
+
+    } catch (err) {
+      console.warn(
+        `⚠️ Задача "${TASK_NAME}" всё ещё отображается либо интерфейс ещё не обновился`
+      );
+    }
+
+    // 1️⃣6️⃣ Скриншот
+    await page.screenshot({
+      path: 'task-deleted.png',
+      fullPage: false
+    });
+
+    console.log(
+      '📸 Скриншот сохранён: task-deleted.png'
+    );
+
+    console.log(
+      '\n✨ Независимый тест удаления задачи успешно пройден!'
+    );
 
   } catch (error) {
-    console.error('❌ Ошибка при удалении задачи:', error.message);
-    
-    try {
-      await page.screenshot({ path: 'task-delete-error.png' });
-      console.log('📸 Скриншот ошибки сохранён: task-delete-error.png');
-    } catch (e) {
-      console.warn('⚠️ Не удалось сохранить скриншот');
+    console.error(
+      '\n❌ Ошибка при удалении задачи:',
+      error.message
+    );
+
+    if (!page.isClosed()) {
+      console.error(
+        `📍 URL в момент ошибки: ${page.url()}`
+      );
+
+      try {
+        await page.screenshot({
+          path: 'task-delete-error.png',
+          fullPage: true
+        });
+
+        console.log(
+          '📸 Скриншот ошибки сохранён: task-delete-error.png'
+        );
+
+      } catch (e) {
+        console.warn(
+          '⚠️ Не удалось сохранить скриншот'
+        );
+      }
+
+      try {
+        const html =
+          await page.content();
+
+        require('fs').writeFileSync(
+          'task-delete-error.html',
+          html
+        );
+
+        console.log(
+          '📄 HTML страницы сохранён: task-delete-error.html'
+        );
+
+      } catch (e) {
+        console.warn(
+          '⚠️ Не удалось сохранить HTML'
+        );
+      }
     }
-    
-    try {
-      const html = await page.content();
-      require('fs').writeFileSync('task-delete-error.html', html);
-      console.log('📄 HTML страницы сохранён: task-delete-error.html');
-    } catch (e) {
-      console.warn('⚠️ Не удалось сохранить HTML');
-    }
-    
+
     throw error;
-    
+
   } finally {
-    await browser.close();
-    console.log('\nℹ️ Браузер закрыт');
+    if (browser.isConnected()) {
+      await browser.close();
+    }
+
+    console.log(
+      '\nℹ️ Браузер закрыт'
+    );
   }
 }
 
 deleteTask()
   .then(() => {
-    console.log('\n✨ Тест удаления задачи завершён успешно');
+    console.log(
+      '\n✨ Тест удаления задачи завершён успешно'
+    );
   })
   .catch(error => {
-    console.error('\n💥 Тест завершился с ошибкой:', error.message);
+    console.error(
+      '\n💥 Тест завершился с ошибкой:',
+      error.message
+    );
+
     process.exit(1);
   });
