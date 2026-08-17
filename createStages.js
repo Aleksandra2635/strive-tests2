@@ -12,251 +12,512 @@ async function createColumn() {
   console.log(`📋 Название колонки: ${COLUMN_NAME}`);
 
   const browserOptions = getBrowserOptions();
-  console.log(`🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`);
-  
+
+  console.log(
+    `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
+  );
+
   const browser = await chromium.launch(browserOptions);
-  
+
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
-    viewport: { width: 1920, height: 1080 }
+    viewport: {
+      width: 1920,
+      height: 1080
+    }
   });
-  
+
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
 
   try {
-    // 1️⃣ Вход в систему
+    // 1️⃣ Авторизация
     console.log('\n🌐 Открытие страницы входа...');
+
     await page.goto('https://app.striveapp.ru/login', {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     });
 
-    await page.waitForSelector('[name="email"]', { state: 'visible', timeout: 30000 });
+    await page.locator('[name="email"]').waitFor({
+      state: 'visible',
+      timeout: 30000
+    });
+
+    console.log('📝 Ввод email...');
     await page.fill('[name="email"]', USER_EMAIL);
+
+    console.log('📝 Ввод пароля...');
     await page.fill('[name="password"]', USER_PASSWORD);
-    await page.click('button[type="submit"]');
+
+    console.log('🖱️ Нажатие кнопки "Продолжить"...');
+
+    await page
+      .locator('button[type="submit"]')
+      .click();
 
     console.log('⏳ Ожидание успешного входа...');
-    await page.waitForURL(/(\/main|\/dashboard|\/workspace)/, { timeout: 45000 });
-    console.log('✅ Вход выполнен!');
 
-    // 2️⃣ Переход в пространство по XPath
-    console.log('\n📁 Переход в пространство...');
-    
-    try {
-      await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/aside/div[1]/div[2]/div[2]/div[1]/div/div[2]/a[1]/div/div[2]', {
+    await page.waitForURL(
+      /\/main|\/dashboard|\/workspace/,
+      {
+        timeout: 45000
+      }
+    );
+
+    console.log('✅ Вход выполнен!');
+    console.log(`🏠 Текущий URL: ${page.url()}`);
+
+    // 2️⃣ Поиск пространства
+    console.log('\n📁 Поиск пространства или проекта...');
+
+    const spaceLinks = page.locator(
+      'a[href*="/spaces/"]'
+    );
+
+    await spaceLinks.first().waitFor({
+      state: 'visible',
+      timeout: 20000
+    });
+
+    const linksCount = await spaceLinks.count();
+
+    console.log(
+      `🔎 Найдено ссылок, содержащих /spaces/: ${linksCount}`
+    );
+
+    let boardHref = null;
+    let projectsHref = null;
+
+    for (let i = 0; i < linksCount; i++) {
+      const href = await spaceLinks
+        .nth(i)
+        .getAttribute('href');
+
+      if (!href) {
+        continue;
+      }
+
+      console.log(`   🔗 ${href}`);
+
+      if (
+        href.includes('/tasks') &&
+        !boardHref
+      ) {
+        boardHref = href;
+      }
+
+      if (
+        /\/spaces\/[^/]+\/projects\/?$/.test(href) &&
+        !projectsHref
+      ) {
+        projectsHref = href;
+      }
+    }
+
+    // 3️⃣ Переход на доску
+    if (boardHref) {
+      console.log(
+        '\n📂 Найдена прямая ссылка на доску проекта'
+      );
+
+      console.log(`🔗 ${boardHref}`);
+
+      await page.goto(
+        new URL(
+          boardHref,
+          'https://app.striveapp.ru'
+        ).href,
+        {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000
+        }
+      );
+
+    } else if (projectsHref) {
+      console.log(
+        '\n📁 Переход к списку проектов пространства...'
+      );
+
+      console.log(`🔗 ${projectsHref}`);
+
+      await page.goto(
+        new URL(
+          projectsHref,
+          'https://app.striveapp.ru'
+        ).href,
+        {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000
+        }
+      );
+
+      console.log(
+        `📍 URL пространства: ${page.url()}`
+      );
+
+      console.log('\n📂 Поиск проекта...');
+
+      const projectLinks = page.locator(
+        'a[href*="/spaces/"][href*="/tasks"]'
+      );
+
+      await projectLinks.first().waitFor({
         state: 'visible',
-        timeout: 15000
+        timeout: 20000
       });
-      await page.click('xpath=/html/body/div[1]/div[1]/section/aside/div[1]/div[2]/div[2]/div[1]/div/div[2]/a[1]/div/div[2]');
-      console.log('✅ Клик по пространству (XPath) выполнен');
-      
-    } catch (err) {
-      console.warn('⚠️ Не найдено по XPath, пробуем по тексту...');
-      await page.waitForSelector('div:has-text("Ваш первый проект")', {
+
+      const projectHref =
+        await projectLinks
+          .first()
+          .getAttribute('href');
+
+      if (!projectHref) {
+        throw new Error(
+          'Не удалось получить ссылку на проект'
+        );
+      }
+
+      console.log(
+        `🔗 Найдена доска проекта: ${projectHref}`
+      );
+
+      await page.goto(
+        new URL(
+          projectHref,
+          'https://app.striveapp.ru'
+        ).href,
+        {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000
+        }
+      );
+
+    } else {
+      throw new Error(
+        'Не удалось найти ни пространство, ни проект'
+      );
+    }
+
+    console.log('✅ Доска проекта открыта');
+    console.log(`📍 URL проекта: ${page.url()}`);
+
+    // 4️⃣ Ждём загрузку доски
+    console.log(
+      '\n⏳ Ожидание полной загрузки доски...'
+    );
+
+    const BOARD_LOAD_TIMEOUT = 30000;
+    const CHECK_INTERVAL = 500;
+
+    const startTime = Date.now();
+
+    let addColumn = null;
+
+    while (
+      Date.now() - startTime <
+      BOARD_LOAD_TIMEOUT
+    ) {
+      const addColumnCandidates =
+        page.getByText(
+          'Добавить колонку',
+          {
+            exact: true
+          }
+        );
+
+      const count =
+        await addColumnCandidates.count();
+
+      for (let i = 0; i < count; i++) {
+        const candidate =
+          addColumnCandidates.nth(i);
+
+        if (await candidate.isVisible()) {
+          addColumn = candidate;
+          break;
+        }
+      }
+
+      if (addColumn) {
+        break;
+      }
+
+      await page.waitForTimeout(
+        CHECK_INTERVAL
+      );
+    }
+
+    if (!addColumn) {
+      throw new Error(
+        'Доска не загрузилась за 30 секунд: "Добавить колонку" не стала видимой'
+      );
+    }
+
+    console.log(
+      '✅ Доска полностью загрузилась'
+    );
+
+    // 5️⃣ Добавление колонки
+    console.log(
+      '\n➕ Нажатие на "Добавить колонку"...'
+    );
+
+    await addColumn.click();
+
+    console.log(
+      '✅ Клик по "Добавить колонку" выполнен'
+    );
+
+    // 6️⃣ Поле ввода названия
+    console.log(
+      '\n📝 Поиск поля названия колонки...'
+    );
+
+    let columnInput = page.locator(
+      'textarea[type="text"]:visible'
+    );
+
+    if (
+      (await columnInput.count()) === 0
+    ) {
+      columnInput = page
+        .locator('textarea:visible')
+        .first();
+    }
+
+    await columnInput.waitFor({
+      state: 'visible',
+      timeout: 10000
+    });
+
+    console.log(
+      '✅ Поле названия колонки найдено'
+    );
+
+    await columnInput.fill(
+      COLUMN_NAME
+    );
+
+    console.log(
+      `✅ Введено название: ${COLUMN_NAME}`
+    );
+
+    // 7️⃣ Сохранение по Enter + ожидание POST
+    console.log(
+      '\n💾 Сохранение колонки клавишей Enter...'
+    );
+
+    const [response] =
+      await Promise.all([
+        page.waitForResponse(
+          response => {
+            const url =
+              response.url();
+
+            const method =
+              response
+                .request()
+                .method();
+
+            return (
+              method === 'POST' &&
+              url.includes('/projects/') &&
+              url.includes('/stages')
+            );
+          },
+          {
+            timeout: 15000
+          }
+        ),
+
+        columnInput.press('Enter')
+      ]);
+
+    console.log(
+      '✅ Enter нажат'
+    );
+
+    // 8️⃣ Проверка ответа сервера
+    const status =
+      response.status();
+
+    const responseUrl =
+      response.url();
+
+    console.log(
+      '\n🔍 Проверка ответа сервера...'
+    );
+
+    console.log(
+      `📡 URL: ${responseUrl}`
+    );
+
+    console.log(
+      `📊 HTTP статус: ${status}`
+    );
+
+    if (
+      status < 200 ||
+      status >= 300
+    ) {
+      throw new Error(
+        `Сервер вернул ошибку при создании колонки: HTTP ${status}`
+      );
+    }
+
+    console.log(
+      '✅ Сервер успешно обработал создание колонки'
+    );
+
+    try {
+      const data =
+        await response.json();
+
+      console.log('📦 Ответ сервера:');
+
+      if (data.id !== undefined) {
+        console.log(
+          `   ID: ${data.id}`
+        );
+      }
+
+      if (data.name !== undefined) {
+        console.log(
+          `   Название: ${data.name}`
+        );
+      }
+
+      if (data.order !== undefined) {
+        console.log(
+          `   Order: ${data.order}`
+        );
+      }
+
+      if (data.projectId !== undefined) {
+        console.log(
+          `   Project ID: ${data.projectId}`
+        );
+      }
+
+      if (
+        data.name === COLUMN_NAME
+      ) {
+        console.log(
+          '✅ Сервер вернул правильное название колонки'
+        );
+      }
+
+    } catch (e) {
+      console.warn(
+        '⚠️ Ответ сервера не удалось распарсить как JSON'
+      );
+    }
+
+    // 9️⃣ Проверка интерфейса
+    console.log(
+      '\n🔎 Проверка созданной колонки в интерфейсе...'
+    );
+
+    const createdColumn =
+      page.getByText(
+        COLUMN_NAME,
+        {
+          exact: true
+        }
+      );
+
+    await createdColumn
+      .first()
+      .waitFor({
         state: 'visible',
         timeout: 10000
       });
-      await page.click('div:has-text("Ваш первый проект")');
-      console.log('✅ Клик по пространству (по тексту) выполнен');
-    }
 
-    // Небольшая задержка для загрузки страницы
-    await page.waitForTimeout(2000);
+    console.log(
+      `✅ Колонка "${COLUMN_NAME}" отображается на доске`
+    );
 
-// 3️⃣ Переход в проект
-console.log('\n📂 Переход в проект...');
-
-try {
-  // Поиск по XPath
-  console.log('🔍 Поиск проекта по XPath...');
-  await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/div/div/div/div/div[3]/div/div/div/div[2]/div/div/div/a/div/div/div[1]/div[2]/div[1]', {
-    state: 'visible',
-    timeout: 15000
-  });
-  await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div/div/div[3]/div/div/div/div[2]/div/div/div/a/div/div/div[1]/div[2]/div[1]');
-  console.log('✅ Клик по проекту (XPath) выполнен');
-  
-} catch (err) {
-  console.warn('⚠️ Не найдено по XPath, пробуем по тексту...');
-  
-  try {
-    await page.waitForSelector('div:has-text("Ваш первый проект")', {
-      state: 'visible',
-      timeout: 10000
+    // 🔟 Скриншот
+    await page.screenshot({
+      path: 'column-created.png',
+      fullPage: false
     });
-    await page.click('div:has-text("Ваш первый проект")');
-    console.log('✅ Клик по проекту (по тексту) выполнен');
-    
-  } catch (err2) {
-    console.warn('⚠️ Не найдено по тексту, пробуем по классу...');
-    
-    await page.waitForSelector('.line-clamp-1.whitespace-pre-wrap', {
-      state: 'visible',
-      timeout: 10000
-    });
-    await page.click('.line-clamp-1.whitespace-pre-wrap');
-    console.log('✅ Клик по проекту (по классу) выполнен');
-  }
-}
 
-// Небольшая задержка для загрузки доски
-await page.waitForTimeout(2000);
+    console.log(
+      '📸 Скриншот сохранён: column-created.png'
+    );
 
-    // Небольшая задержка для загрузки доски
-    await page.waitForTimeout(2000);
-
-    // 4️⃣ Нажатие на кнопку "Добавить колонку"
-    console.log('\n➕ Нажатие на кнопку "Добавить колонку"...');
-    
-    await page.waitForSelector('span:has-text("Добавить колонку")', {
-      state: 'visible',
-      timeout: 10000
-    });
-    await page.click('span:has-text("Добавить колонку")');
-    console.log('✅ Клик по "Добавить колонку" выполнен');
-
-   // 5️⃣ Ввод названия колонки
-console.log('\n📝 Ввод названия колонки...');
-
-// Ждём появления textarea
-await page.waitForSelector('textarea[type="text"]', {
-  state: 'visible',
-  timeout: 10000
-});
-
-// Очищаем и вводим текст
-await page.fill('textarea[type="text"]', COLUMN_NAME);
-await page.waitForTimeout(500);
-console.log(`✅ Введено название: ${COLUMN_NAME}`);
-
-// 6️⃣ Сохранение колонки - клик по кнопке
-console.log('\n💾 Сохранение колонки...');
-
-try {
-  // Клик по кнопке через XPath
-  console.log('🔍 Клик по кнопке сохранения (XPath)...');
-  await page.waitForSelector('/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[1]/div[2]/div', {
-    state: 'visible',
-    timeout: 10000
-  });
-  await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[1]/div/div[1]/div[2]/div');
-  console.log('✅ Клик по кнопке сохранения выполнен');
-  
-} catch (err) {
-  console.warn('⚠️ Не найдено по XPath, пробуем резервные способы...');
-  
-  try {
-    // Резервный способ: клик по XPath
-    await page.click('xpath=/html/body/div[1]/div[1]/section/div/div/div[2]/div/div[2]/div/div[2]');
-    console.log('✅ Клик по резервному XPath выполнен');
-    
-  } catch (err2) {
-    console.error('❌ Не удалось сохранить колонку');
-    throw new Error('Не удалось сохранить колонку');
-  }
-}
-
-
-
-
-
- // 7️⃣ Проверка POST запроса на сервер
-console.log('\n🔍 Проверка отправки POST запроса на сервер...');
-
-try {
-  const response = await page.waitForResponse(
-    response => {
-      const url = response.url();
-      const method = response.request().method();
-      
-      // Проверяем что это POST запрос на создание колонки
-      return url.includes('/projects/') && 
-             url.includes('/stages') && 
-             method === 'POST';
-    },
-    { timeout: 10000 }
-  );
-  
-  const status = response.status();
-  const url = response.url();
-  
-  console.log(`✅ POST запрос получен!`);
-  console.log(`📡 URL: ${url}`);
-  console.log(`📊 Статус: ${status} ${status === 201 ? '(Created)' : ''}`);
-  
-  // Извлекаем данные из URL
-  const urlMatch = url.match(/\/projects\/(\d+)\/stages/);
-  if (urlMatch) {
-    console.log(`🆔 ID проекта: ${urlMatch[1]}`);
-  }
-  
-  // Получаем ответ от сервера
-  if (status === 201 || status === 200) {
-    try {
-      const data = await response.json();
-      console.log('✅ Ответ сервера:');
-      console.log(`   ID колонки: ${data.id}`);
-      console.log(`   Название: ${data.name}`);
-      console.log(`   Order: ${data.order}`);
-      console.log(`   Project ID: ${data.projectId}`);
-      
-      // Проверяем что колонка создана с правильным названием
-      if (data.name === COLUMN_NAME) {
-        console.log('✅ Колонка создана с правильным названием!');
-      } else {
-        console.warn(`⚠️ Название колонки не совпадает: ожидалось "${COLUMN_NAME}", получено "${data.name}"`);
-      }
-      
-    } catch (e) {
-      console.log('⚠️ Не удалось распарсить JSON ответ');
-    }
-  } else {
-    console.warn(`⚠️ Сервер вернул статус: ${status}`);
-  }
-  
-} catch (err) {
-  console.error('❌ Не удалось перехватить POST запрос');
-  throw new Error('POST запрос на создание колонки не отправлен');
-}
-    // 8️⃣ Финальный скриншот
-    await page.screenshot({ path: 'column-created.png', fullPage: false });
-    console.log('📸 Скриншот сохранён: column-created.png');
-
-    console.log('\n✨ Колонка успешно создана!');
+    console.log(
+      '\n✨ Колонка успешно создана!'
+    );
 
   } catch (error) {
-    console.error('❌ Ошибка при создании колонки:', error.message);
-    
+    console.error(
+      '\n❌ Ошибка при создании колонки:',
+      error.message
+    );
+
+    console.error(
+      `📍 URL в момент ошибки: ${page.url()}`
+    );
+
     try {
-      await page.screenshot({ path: 'column-error.png' });
-      console.log('📸 Скриншот ошибки сохранён: column-error.png');
+      await page.screenshot({
+        path: 'column-error.png',
+        fullPage: true
+      });
+
+      console.log(
+        '📸 Скриншот ошибки сохранён: column-error.png'
+      );
     } catch (e) {
-      console.warn('⚠️ Не удалось сохранить скриншот');
+      console.warn(
+        '⚠️ Не удалось сохранить скриншот'
+      );
     }
-    
+
     try {
-      const html = await page.content();
-      require('fs').writeFileSync('column-error.html', html);
-      console.log('📄 HTML страницы сохранён: column-error.html');
+      const html =
+        await page.content();
+
+      require('fs').writeFileSync(
+        'column-error.html',
+        html
+      );
+
+      console.log(
+        '📄 HTML страницы сохранён: column-error.html'
+      );
+
     } catch (e) {
-      console.warn('⚠️ Не удалось сохранить HTML');
+      console.warn(
+        '⚠️ Не удалось сохранить HTML'
+      );
     }
-    
+
     throw error;
-    
+
   } finally {
     await browser.close();
-    console.log('\nℹ️ Браузер закрыт');
+
+    console.log(
+      '\nℹ️ Браузер закрыт'
+    );
   }
 }
 
 createColumn()
   .then(() => {
-    console.log('\n✨ Тест создания колонки завершён успешно');
+    console.log(
+      '\n✨ Тест создания колонки завершён успешно'
+    );
   })
   .catch(error => {
-    console.error('\n💥 Тест завершился с ошибкой:', error.message);
+    console.error(
+      '\n💥 Тест завершился с ошибкой:',
+      error.message
+    );
+
     process.exit(1);
   });
