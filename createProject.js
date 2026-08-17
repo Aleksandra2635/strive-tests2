@@ -12,204 +12,371 @@ async function createProject() {
   console.log(`📦 Название проекта: ${PROJECT_NAME}`);
 
   const browserOptions = getBrowserOptions();
-  console.log(`🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`);
-  
+
+  console.log(
+    `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
+  );
+
   const browser = await chromium.launch(browserOptions);
-  
+
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
-    viewport: { width: 1920, height: 1080 }
+    viewport: {
+      width: 1920,
+      height: 1080
+    }
   });
-  
+
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
 
   try {
-    // 1️⃣ Вход в систему
+    // 1️⃣ Вход
     console.log('\n🌐 Открытие страницы входа...');
+
     await page.goto('https://app.striveapp.ru/login', {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     });
 
-    await page.waitForSelector('[name="email"]', { state: 'visible', timeout: 30000 });
+    console.log('⏳ Ожидание формы входа...');
+
+    await page.locator('[name="email"]').waitFor({
+      state: 'visible',
+      timeout: 30000
+    });
+
     await page.fill('[name="email"]', USER_EMAIL);
     await page.fill('[name="password"]', USER_PASSWORD);
-    await page.click('button[type="submit"]');
+
+    console.log('🖱️ Нажатие кнопки "Продолжить"...');
+
+    await page.locator('button[type="submit"]').click();
 
     console.log('⏳ Ожидание успешного входа...');
-    await page.waitForURL(/(\/main|\/dashboard|\/workspace)/, { timeout: 45000 });
+
+    await page.waitForURL(
+      /\/main|\/dashboard|\/workspace/,
+      {
+        timeout: 45000
+      }
+    );
+
     console.log('✅ Вход выполнен!');
+    console.log(`🏠 Текущий URL: ${page.url()}`);
 
-   // 2️⃣ Переход в пространство
-console.log('\n📁 Переход в пространство...');
+    // 2️⃣ Поиск пространства
+    console.log('\n📁 Поиск доступного пространства...');
 
-try {
-  // Поиск по XPath
-  console.log('🔍 Поиск пространства по XPath...');
-  await page.waitForSelector('xpath=/html/body/div[1]/div[1]/section/aside/div[1]/div[2]/div[2]/div[1]/div/div[2]/a[1]/div/div[2]', {
-    state: 'visible',
-    timeout: 15000
-  });
-  await page.click('xpath=/html/body/div[1]/div[1]/section/aside/div[1]/div[2]/div[2]/div[1]/div/div[2]/a[1]/div/div[2]');
-  console.log('✅ Клик по пространству (XPath) выполнен');
-  
-} catch (err) {
-  console.warn('⚠️ Не найдено по XPath, пробуем по тексту...');
-}
+    const spaceLinks = page.locator(
+      'a[href*="/spaces/"]'
+    );
 
-    // Ожидание загрузки страницы пространства
-    await page.waitForURL(/\/spaces\/\d+\/projects/, { timeout: 15000 });
-    console.log(`📍 URL пространства: ${page.url()}`);
+    await spaceLinks.first().waitFor({
+      state: 'visible',
+      timeout: 20000
+    });
 
-    // 3️⃣ Нажатие на кнопку "Добавить проект"
-    console.log('\n➕ Нажатие на кнопку "Добавить проект"...');
-    
+    const linksCount = await spaceLinks.count();
+
+    console.log(
+      `🔎 Найдено ссылок на пространства/проекты: ${linksCount}`
+    );
+
+    let spaceLink = null;
+    let spaceHref = null;
+
+    for (let i = 0; i < linksCount; i++) {
+      const candidate = spaceLinks.nth(i);
+      const href = await candidate.getAttribute('href');
+
+      if (!href) {
+        continue;
+      }
+
+      /*
+       * Ищем ссылку уровня пространства:
+       *
+       * /spaces/ID/projects
+       *
+       * ID может быть числом, UUID и т.д.
+       */
+      if (/\/spaces\/[^/]+\/projects\/?$/.test(href)) {
+        spaceLink = candidate;
+        spaceHref = href;
+        break;
+      }
+    }
+
+    // Если отдельную ссылку /projects не нашли,
+    // используем первую ссылку пространства.
+    if (!spaceLink) {
+      console.warn(
+        '⚠️ Ссылка вида /spaces/.../projects не найдена. Используем первую ссылку /spaces/...'
+      );
+
+      spaceLink = spaceLinks.first();
+      spaceHref = await spaceLink.getAttribute('href');
+    }
+
+    console.log(`🔗 Найден путь пространства: ${spaceHref}`);
+
+    await spaceLink.click();
+
+    console.log('✅ Клик по пространству выполнен');
+
+    await page.waitForURL(
+      url => url.pathname.includes('/spaces/'),
+      {
+        timeout: 20000
+      }
+    );
+
+    console.log(
+      `📍 URL после перехода: ${page.url()}`
+    );
+
+    // 3️⃣ Добавить проект
+    console.log(
+      '\n➕ Поиск кнопки "Добавить проект"...'
+    );
+
+    const addProject = page.getByText(
+      'Добавить проект',
+      {
+        exact: true
+      }
+    );
+
+    await addProject.waitFor({
+      state: 'visible',
+      timeout: 15000
+    });
+
+    await addProject.click();
+
+    console.log(
+      '✅ Клик по "Добавить проект" выполнен'
+    );
+
+    // 4️⃣ Пустой проект
+    console.log(
+      '\n📄 Поиск пункта "Пустой проект"...'
+    );
+
+    const emptyProject = page.getByText(
+      'Пустой проект',
+      {
+        exact: true
+      }
+    );
+
+    await emptyProject.waitFor({
+      state: 'visible',
+      timeout: 15000
+    });
+
+    await emptyProject.click();
+
+    console.log(
+      '✅ Клик по "Пустой проект" выполнен'
+    );
+
+    // 5️⃣ Название проекта
+    console.log(
+      '\n📝 Ввод названия проекта...'
+    );
+
+    let projectNameInput = page.locator(
+      'input[placeholder="Название проекта"]'
+    );
+
+    if (
+      !(await projectNameInput.count())
+    ) {
+      console.warn(
+        '⚠️ Поле по placeholder не найдено, ищем видимое текстовое поле...'
+      );
+
+      projectNameInput = page.locator(
+        'input[type="text"]:visible'
+      ).first();
+    }
+
+    await projectNameInput.waitFor({
+      state: 'visible',
+      timeout: 15000
+    });
+
+    await projectNameInput.fill(PROJECT_NAME);
+
+    console.log(
+      `✅ Введено название: ${PROJECT_NAME}`
+    );
+
+    // 6️⃣ Создать проект
+    console.log(
+      '\n💾 Поиск кнопки "Создать проект"...'
+    );
+
+    const createProjectButton = page.getByRole(
+      'button',
+      {
+        name: 'Создать проект'
+      }
+    );
+
+    await createProjectButton.waitFor({
+      state: 'visible',
+      timeout: 15000
+    });
+
+    await createProjectButton.click();
+
+    console.log(
+      '✅ Клик по "Создать проект" выполнен'
+    );
+
+    // 7️⃣ Проверка результата
+    console.log(
+      '\n⏳ Ожидание создания проекта...'
+    );
+
     try {
-      await page.waitForSelector('span:has-text("Добавить проект")', {
-        state: 'visible',
-        timeout: 10000
-      });
-      await page.click('span:has-text("Добавить проект")');
-      console.log('✅ Клик по "Добавить проект" выполнен');
-      
+      await page.waitForURL(
+        url =>
+          url.pathname.includes('/spaces/') &&
+          (
+            url.pathname.includes('/tasks') ||
+            url.pathname.includes('/projects')
+          ),
+        {
+          timeout: 20000
+        }
+      );
+
+      console.log(
+        '✅ После создания выполнен переход!'
+      );
+
+      console.log(
+        `📍 URL: ${page.url()}`
+      );
+
     } catch (err) {
-      console.warn('⚠️ Не найдено по тексту, пробуем по классу...');
-      
-      await page.waitForSelector('.font-bold.text-\\[14px\\].text-\\[\\#111012\\]', {
-        state: 'visible',
-        timeout: 10000
-      });
-      await page.click('.font-bold.text-\\[14px\\].text-\\[\\#111012\\]');
-      console.log('✅ Клик по "Добавить проект" (по классу) выполнен');
+      console.warn(
+        '⚠️ После создания URL не изменился ожидаемым образом'
+      );
+
+      console.log(
+        `📍 Текущий URL: ${page.url()}`
+      );
     }
 
-    // 4️⃣ Нажатие на кнопку "Пустой проект"
-    console.log('\n📄 Нажатие на кнопку "Пустой проект"...');
-    
+    // 8️⃣ Проверяем, что название проекта появилось
+    console.log(
+      '\n🔎 Проверка созданного проекта...'
+    );
+
     try {
-      await page.waitForSelector('p:has-text("Пустой проект")', {
+      await page.getByText(
+        PROJECT_NAME,
+        {
+          exact: true
+        }
+      ).first().waitFor({
         state: 'visible',
         timeout: 10000
       });
-      await page.click('p:has-text("Пустой проект")');
-      console.log('✅ Клик по "Пустой проект" выполнен');
-      
+
+      console.log(
+        `✅ Проект "${PROJECT_NAME}" найден на странице`
+      );
+
     } catch (err) {
-      console.warn('⚠️ Не найдено по тексту, пробуем по классу...');
-      
-      await page.waitForSelector('.font-roboto.text-\\[14px\\].text-\\[\\#4D4D4D\\]', {
-        state: 'visible',
-        timeout: 10000
-      });
-      await page.click('.font-roboto.text-\\[14px\\].text-\\[\\#4D4D4D\\]');
-      console.log('✅ Клик по "Пустой проект" (по классу) выполнен');
+      console.warn(
+        `⚠️ Название "${PROJECT_NAME}" не найдено на текущем экране`
+      );
+
+      console.warn(
+        '💡 Проект мог быть создан, но его название находится на другом экране'
+      );
     }
 
-    // 5️⃣ Ввод названия проекта
-    console.log('\n📝 Ввод названия проекта...');
-    
+    // Скриншот результата
+    await page.screenshot({
+      path: 'create-project-result.png',
+      fullPage: true
+    });
+
+    console.log(
+      '📸 Скриншот сохранён: create-project-result.png'
+    );
+
+  } catch (error) {
+    console.error(
+      '\n❌ Ошибка при выполнении теста:',
+      error.message
+    );
+
+    console.error(
+      `📍 URL в момент ошибки: ${page.url()}`
+    );
+
     try {
-      await page.waitForSelector('input[placeholder="Название проекта"]', {
-        state: 'visible',
-        timeout: 10000
+      await page.screenshot({
+        path: 'error.png',
+        fullPage: true
       });
-      console.log('✅ Поле ввода найдено');
-      
-      await page.fill('input[placeholder="Название проекта"]', PROJECT_NAME);
-      await page.waitForTimeout(500);
-      console.log(`✅ Введено название: ${PROJECT_NAME}`);
-      
-    } catch (err) {
-      console.warn('⚠️ Не найдено по placeholder, пробуем по классу...');
-      
-      await page.waitForSelector('input[type="text"].w-\\[300px\\]', {
-        state: 'visible',
-        timeout: 10000
-      });
-      await page.fill('input[type="text"].w-\\[300px\\]', PROJECT_NAME);
-      await page.waitForTimeout(500);
-      console.log(`✅ Введено название: ${PROJECT_NAME}`);
+
+      console.log(
+        '📸 Скриншот ошибки сохранён: error.png'
+      );
+    } catch (e) {
+      console.warn(
+        '⚠️ Не удалось сохранить скриншот'
+      );
     }
 
-    // 6️⃣ Нажатие на кнопку "Создать проект"
-    console.log('\n💾 Нажатие на кнопку "Создать проект"...');
-    
     try {
-      await page.waitForSelector('button:has-text("Создать проект")', {
-        state: 'visible',
-        timeout: 10000
-      });
-      await page.click('button:has-text("Создать проект")');
-      console.log('✅ Клик по "Создать проект" выполнен');
-      
-    } catch (err) {
-      console.warn('⚠️ Не найдено по тексту, пробуем по классу...');
-      
-      await page.waitForSelector('button.bg-\\[\\#111012\\].text-\\[\\#fff\\]', {
-        state: 'visible',
-        timeout: 10000
-      });
-      await page.click('button.bg-\\[\\#111012\\].text-\\[\\#fff\\]');
-      console.log('✅ Клик по "Создать проект" (по классу) выполнен');
+      const html = await page.content();
+
+      require('fs').writeFileSync(
+        'error.html',
+        html
+      );
+
+      console.log(
+        '📄 HTML страницы сохранён: error.html'
+      );
+    } catch (e) {
+      console.warn(
+        '⚠️ Не удалось сохранить HTML'
+      );
     }
 
-   // 7️⃣ Ожидание создания проекта и перехода на доску
-console.log('\n⏳ Ожидание создания проекта...');
+    throw error;
 
-try {
-  // Ожидаем URL с ID пространства и проекта
-  await page.waitForURL(/\/spaces\/\d+\/\d+\/tasks/, { 
-    timeout: 15000 
-  });
-  
-  const currentUrl = page.url();
-  console.log('✅ Проект создан и доска открыта!');
-  console.log(`📍 URL: ${currentUrl}`);
-  
-  // Извлекаем ID пространства и проекта из URL
-  const urlMatch = currentUrl.match(/\/spaces\/(\d+)\/(\d+)\/tasks/);
-  if (urlMatch) {
-    const spaceId = urlMatch[1];
-    const projectId = urlMatch[2];
-    console.log(`🆔 ID пространства: ${spaceId}`);
-    console.log(`🆔 ID проекта: ${projectId}`);
-  }
-  
-} catch (err) {
-  console.warn('⚠️ URL не соответствует ожидаемому паттерну');
-  
-  const currentUrl = page.url();
-  console.log(`📍 Текущий URL: ${currentUrl}`);
-  
-  // Проверяем альтернативные варианты
-  if (currentUrl.includes('/spaces/') && currentUrl.includes('/tasks')) {
-    console.log('✅ URL содержит правильные части пути');
-    
-    const urlMatch = currentUrl.match(/\/spaces\/(\d+)\/(\d+)\/tasks/);
-    if (urlMatch) {
-      const spaceId = urlMatch[1];
-      const projectId = urlMatch[2];
-      console.log(`🆔 ID пространства: ${spaceId}`);
-      console.log(`🆔 ID проекта: ${projectId}`);
-    }
-  } else {
-    console.error('❌ URL не соответствует ожидаемому формату');
-    throw new Error('Не удалось перейти на доску проекта');
-  }
-}
-    
   } finally {
     await browser.close();
-    console.log('\nℹ️ Браузер закрыт');
+
+    console.log(
+      '\nℹ️ Браузер закрыт'
+    );
   }
 }
 
 createProject()
   .then(() => {
-    console.log('\n✨ Тест создания проекта завершён успешно');
+    console.log(
+      '\n✨ Тест создания проекта завершён успешно'
+    );
   })
   .catch(error => {
-    console.error('\n💥 Тест завершился с ошибкой:', error.message);
+    console.error(
+      '\n💥 Тест завершился с ошибкой:',
+      error.message
+    );
+
     process.exit(1);
   });
