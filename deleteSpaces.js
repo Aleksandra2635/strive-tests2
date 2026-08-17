@@ -20,6 +20,13 @@ async function deleteSpace() {
     }`
   );
 
+  // В видимом режиме замедляем Playwright,
+  // чтобы можно было глазами следить за действиями.
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -32,6 +39,14 @@ async function deleteSpace() {
 
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
+
+  // Дополнительные паузы выполняются только
+  // при запуске браузера в видимом режиме.
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
 
   try {
     // ============================================================
@@ -53,15 +68,25 @@ async function deleteSpace() {
       timeout: 30000
     });
 
+    await visualPause(1000);
+
+    console.log('📝 Ввод email...');
+
     await page.fill(
       '[name="email"]',
       USER_EMAIL
     );
 
+    await visualPause(500);
+
+    console.log('📝 Ввод пароля...');
+
     await page.fill(
       '[name="password"]',
       USER_PASSWORD
     );
+
+    await visualPause(1000);
 
     console.log(
       '🖱️ Нажатие кнопки "Продолжить"...'
@@ -83,9 +108,12 @@ async function deleteSpace() {
     );
 
     console.log('✅ Вход выполнен!');
+
     console.log(
       `🏠 Текущий URL: ${page.url()}`
     );
+
+    await visualPause(1500);
 
     // ============================================================
     // 2. ПОИСК НУЖНОГО ПРОСТРАНСТВА
@@ -180,6 +208,8 @@ async function deleteSpace() {
       );
     }
 
+    await visualPause(1500);
+
     // ============================================================
     // 3. ПЕРЕХОД В ПРОСТРАНСТВО
     // ============================================================
@@ -214,6 +244,8 @@ async function deleteSpace() {
       `📍 URL: ${page.url()}`
     );
 
+    await visualPause(1500);
+
     // ============================================================
     // 4. ЖДЁМ ЗАГРУЗКУ СТРАНИЦЫ
     // ============================================================
@@ -221,14 +253,6 @@ async function deleteSpace() {
     console.log(
       '\n⏳ Ожидание полной загрузки пространства...'
     );
-
-    /*
-     * Ждём появления актуальной кнопки настроек.
-     *
-     * По диагностике:
-     * SVG width=17 height=16 viewBox="0 0 17 16"
-     * находится непосредственно внутри BUTTON.
-     */
 
     const settingsSvg =
       page.locator(
@@ -243,6 +267,8 @@ async function deleteSpace() {
     console.log(
       '✅ Пространство полностью загрузилось'
     );
+
+    await visualPause(1500);
 
     // ============================================================
     // 5. КНОПКА НАСТРОЕК ПРОСТРАНСТВА
@@ -264,11 +290,19 @@ async function deleteSpace() {
       '✅ Кнопка настроек найдена'
     );
 
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Открытие меню пространства...'
+    );
+
     await settingsButton.click();
 
     console.log(
       '✅ Клик по кнопке настроек выполнен'
     );
+
+    await visualPause(2000);
 
     // ============================================================
     // 6. ОЖИДАНИЕ МЕНЮ НАСТРОЕК
@@ -277,13 +311,6 @@ async function deleteSpace() {
     console.log(
       '\n📋 Ожидание меню пространства...'
     );
-
-    /*
-     * В диагностике текст "Настройки" уже присутствовал
-     * в DOM, но был скрыт.
-     *
-     * После клика он должен стать visible.
-     */
 
     const settingsTexts = [
       page.getByText(
@@ -360,6 +387,8 @@ async function deleteSpace() {
       '✅ Пункт настроек найден'
     );
 
+    await visualPause(1500);
+
     // ============================================================
     // 7. ПЕРЕХОД В НАСТРОЙКИ
     // ============================================================
@@ -367,11 +396,6 @@ async function deleteSpace() {
     console.log(
       '\n⚙️ Переход в настройки пространства...'
     );
-
-    /*
-     * Если текст находится внутри button/div,
-     * кликаем по ближайшему интерактивному родителю.
-     */
 
     let settingsClickable =
       settingsMenuItem.locator(
@@ -387,6 +411,8 @@ async function deleteSpace() {
         );
     }
 
+    await visualPause(1000);
+
     if (
       (await settingsClickable.count()) > 0
     ) {
@@ -399,6 +425,8 @@ async function deleteSpace() {
       '✅ Клик по настройкам выполнен'
     );
 
+    await visualPause(2000);
+
     // ============================================================
     // 8. ЖДЁМ ОТКРЫТИЕ НАСТРОЕК
     // ============================================================
@@ -407,13 +435,11 @@ async function deleteSpace() {
       '\n⏳ Ожидание открытия настроек...'
     );
 
-    await page.waitForTimeout(1000);
-
     /*
-     * Ищем кнопку "Удалить".
-     * Здесь она должна находиться уже непосредственно
-     * на странице/панели настроек пространства.
+     * Это функциональная пауза из исходного теста.
+     * Она выполняется и в headless.
      */
+    await page.waitForTimeout(1000);
 
     const deleteCandidates =
       page.getByRole(
@@ -460,10 +486,6 @@ async function deleteSpace() {
         break;
       }
 
-      /*
-       * Возможно кнопка находится ниже.
-       */
-
       await page.evaluate(() => {
         window.scrollTo(
           0,
@@ -489,11 +511,6 @@ async function deleteSpace() {
         500
       );
     }
-
-    /*
-     * Резерв: если role=button отсутствует,
-     * ищем любой видимый текст "Удалить".
-     */
 
     if (!deleteButton) {
       console.warn(
@@ -557,6 +574,8 @@ async function deleteSpace() {
       '✅ Кнопка "Удалить" найдена'
     );
 
+    await visualPause(2000);
+
     // ============================================================
     // 9. КЛИК "УДАЛИТЬ"
     // ============================================================
@@ -567,11 +586,15 @@ async function deleteSpace() {
 
     await deleteButton.scrollIntoViewIfNeeded();
 
+    await visualPause(1000);
+
     await deleteButton.click();
 
     console.log(
       '✅ Клик по "Удалить" выполнен'
     );
+
+    await visualPause(2000);
 
     // ============================================================
     // 10. ПОДТВЕРЖДЕНИЕ
@@ -594,6 +617,9 @@ async function deleteSpace() {
     console.log(
       '✅ Модальное окно подтверждения открыто'
     );
+
+    // Специально держим модалку перед глазами подольше.
+    await visualPause(2500);
 
     // ============================================================
     // 11. ПОДТВЕРЖДАЕМ + ЖДЁМ PATCH
@@ -680,6 +706,8 @@ async function deleteSpace() {
       );
     }
 
+    await visualPause(2000);
+
     // ============================================================
     // 13. ВОЗВРАЩАЕМСЯ НА MAIN
     // ============================================================
@@ -696,6 +724,12 @@ async function deleteSpace() {
       }
     );
 
+    console.log(
+      `📍 URL: ${page.url()}`
+    );
+
+    await visualPause(2000);
+
     // ============================================================
     // 14. ПРОВЕРЯЕМ ИСЧЕЗНОВЕНИЕ
     // ============================================================
@@ -704,6 +738,9 @@ async function deleteSpace() {
       '\n🔍 Проверка исчезновения пространства...'
     );
 
+    /*
+     * Оставляем исходную функциональную задержку.
+     */
     await page.waitForTimeout(
       1500
     );
@@ -747,6 +784,9 @@ async function deleteSpace() {
       `✅ Пространство "${SPACE_NAME}" больше не отображается`
     );
 
+    // Держим итоговый экран перед глазами.
+    await visualPause(3000);
+
     // ============================================================
     // 15. СКРИНШОТ
     // ============================================================
@@ -774,6 +814,10 @@ async function deleteSpace() {
       console.error(
         `📍 URL в момент ошибки: ${page.url()}`
       );
+
+      // В видимом режиме держим экран ошибки,
+      // чтобы можно было увидеть, где остановился сценарий.
+      await visualPause(3000);
 
       try {
         await page.screenshot({

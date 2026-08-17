@@ -16,6 +16,13 @@ async function ordercancellation() {
     `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
   );
 
+  // В видимом режиме замедляем действия Playwright,
+  // чтобы можно было глазами следить за тестом.
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -30,48 +37,78 @@ async function ordercancellation() {
 
   page.setDefaultTimeout(60000);
 
+  // Дополнительные паузы только в видимом режиме.
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
+
   try {
     // 1️⃣ Открытие страницы входа
-    console.log('🌐 Открытие страницы входа...');
+    console.log('\n🌐 Открытие страницы входа...');
 
-    await page.goto('https://app.striveapp.ru/login', {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
-    });
+    await page.goto(
+      'https://app.striveapp.ru/login',
+      {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000
+      }
+    );
 
-    console.log('✅ Страница входа загружена');
+    console.log(
+      '✅ Страница входа загружена'
+    );
+
+    await visualPause(1000);
 
     // 2️⃣ Ожидание поля email
-    console.log('⏳ Ожидание поля ввода email...');
+    console.log(
+      '⏳ Ожидание поля ввода email...'
+    );
 
-    await page.locator('[name="email"]').waitFor({
+    await page.locator(
+      '[name="email"]'
+    ).waitFor({
       state: 'visible',
       timeout: 30000
     });
 
     // 3️⃣ Ввод данных
-    console.log('📝 Ввод email...');
+    console.log(
+      '📝 Ввод email...'
+    );
 
     await page.fill(
       '[name="email"]',
       USER_EMAIL
     );
 
-    console.log('📝 Ввод пароля...');
+    await visualPause(500);
+
+    console.log(
+      '📝 Ввод пароля...'
+    );
 
     await page.fill(
       '[name="password"]',
       USER_PASSWORD
     );
 
+    await visualPause(1000);
+
     // 4️⃣ Вход
-    console.log('🖱️ Нажатие кнопки "Продолжить"...');
+    console.log(
+      '🖱️ Нажатие кнопки "Продолжить"...'
+    );
 
     await page.locator(
       'button[type="submit"]'
     ).click();
 
-    console.log('⏳ Ожидание завершения входа...');
+    console.log(
+      '⏳ Ожидание завершения входа...'
+    );
 
     await page.waitForURL(
       /\/main|\/dashboard|\/workspace/,
@@ -80,8 +117,15 @@ async function ordercancellation() {
       }
     );
 
-    console.log('✅ Вход успешно выполнен!');
-    console.log(`🏠 Текущий URL: ${page.url()}`);
+    console.log(
+      '✅ Вход успешно выполнен!'
+    );
+
+    console.log(
+      `🏠 Текущий URL: ${page.url()}`
+    );
+
+    await visualPause(1500);
 
     // 5️⃣ Переход в "Моя организация"
     console.log(
@@ -111,6 +155,8 @@ async function ordercancellation() {
       `📍 URL: ${page.url()}`
     );
 
+    await visualPause(2000);
+
     // 6️⃣ Переход в "Оплата и тарифы"
     console.log(
       '\n💳 Переход в раздел "Оплата и тарифы"...'
@@ -139,6 +185,8 @@ async function ordercancellation() {
       `📍 URL: ${page.url()}`
     );
 
+    await visualPause(2000);
+
     // 7️⃣ Отмена заказа
     console.log(
       '\n🔄 Начало процесса отмены заказа...'
@@ -149,17 +197,28 @@ async function ordercancellation() {
       '🗑️ Поиск кнопки "Отменить заказ"...'
     );
 
-    const cancelOrderButton = page.getByRole(
-      'button',
-      {
-        name: 'Отменить заказ'
-      }
-    );
+    const cancelOrderButton =
+      page.getByRole(
+        'button',
+        {
+          name: 'Отменить заказ'
+        }
+      );
 
     await cancelOrderButton.waitFor({
       state: 'visible',
       timeout: 15000
     });
+
+    console.log(
+      '✅ Кнопка "Отменить заказ" найдена'
+    );
+
+    await visualPause(1500);
+
+    console.log(
+      '🖱️ Нажатие "Отменить заказ"...'
+    );
 
     await cancelOrderButton.click();
 
@@ -167,19 +226,33 @@ async function ordercancellation() {
       '✅ Клик по "Отменить заказ" выполнен'
     );
 
+    // Даём посмотреть на открывшуюся форму/модалку.
+    await visualPause(2000);
+
     // 7.2 Ввод причины отмены
     console.log(
       '\n📝 Ввод причины отмены...'
     );
 
-    const reasonInput = page.locator(
-      'textarea[placeholder="Введите причину отмены"]'
-    );
+    const reasonInput =
+      page.locator(
+        'textarea[placeholder="Введите причину отмены"]'
+      );
 
     await reasonInput.waitFor({
       state: 'visible',
       timeout: 10000
     });
+
+    console.log(
+      '✅ Поле причины отмены найдено'
+    );
+
+    await visualPause(1000);
+
+    console.log(
+      '⌨️ Ввод причины: "Strive Test"'
+    );
 
     await reasonInput.fill(
       'Strive Test'
@@ -189,22 +262,37 @@ async function ordercancellation() {
       '✅ Введена причина: Strive Test'
     );
 
+    await visualPause(2000);
+
     // 7.3 Нажатие "Сохранить"
     console.log(
       '\n💾 Нажатие кнопки "Сохранить"...'
     );
 
-    const saveButton = page.getByRole(
-      'button',
-      {
-        name: 'Сохранить'
-      }
-    );
+    const saveButton =
+      page.getByRole(
+        'button',
+        {
+          name: 'Сохранить'
+        }
+      );
 
     await saveButton.waitFor({
       state: 'visible',
       timeout: 10000
     });
+
+    console.log(
+      '✅ Кнопка "Сохранить" найдена'
+    );
+
+    // Перед подтверждением оставляем заполненную
+    // форму отмены перед глазами.
+    await visualPause(2500);
+
+    console.log(
+      '🖱️ Подтверждение отмены заказа...'
+    );
 
     await saveButton.click();
 
@@ -212,8 +300,11 @@ async function ordercancellation() {
       '✅ Клик по "Сохранить" выполнен'
     );
 
-    // Даём интерфейсу обработать отмену
+    // Исходная функциональная задержка.
     await page.waitForTimeout(2000);
+
+    // Дополнительно показываем результат в visible-режиме.
+    await visualPause(2000);
 
     // 8️⃣ Скриншот подтверждения
     await page.screenshot({
@@ -229,52 +320,66 @@ async function ordercancellation() {
       '\n✅ Отмена заказа выполнена'
     );
 
+    // Финальное состояние держим на экране.
+    await visualPause(3000);
+
   } catch (error) {
     console.error(
-      '❌ Ошибка при выполнении теста:',
+      '\n❌ Ошибка при выполнении теста:',
       error.message
     );
 
-    console.error(
-      `📍 URL в момент ошибки: ${page.url()}`
-    );
-
-    try {
-      await page.screenshot({
-        path: 'error.png',
-        fullPage: true
-      });
-
-      console.log(
-        '📸 Скриншот ошибки сохранён: error.png'
-      );
-    } catch (e) {
-      console.warn(
-        '⚠️ Не удалось сохранить скриншот'
-      );
-    }
-
-    try {
-      const html = await page.content();
-
-      require('fs').writeFileSync(
-        'error.html',
-        html
+    if (!page.isClosed()) {
+      console.error(
+        `📍 URL в момент ошибки: ${page.url()}`
       );
 
-      console.log(
-        '📄 HTML страницы сохранён: error.html'
-      );
-    } catch (e) {
-      console.warn(
-        '⚠️ Не удалось сохранить HTML'
-      );
+      // В видимом режиме оставляем экран ошибки
+      // на несколько секунд.
+      await visualPause(3000);
+
+      try {
+        await page.screenshot({
+          path: 'error.png',
+          fullPage: true
+        });
+
+        console.log(
+          '📸 Скриншот ошибки сохранён: error.png'
+        );
+
+      } catch (e) {
+        console.warn(
+          '⚠️ Не удалось сохранить скриншот'
+        );
+      }
+
+      try {
+        const html =
+          await page.content();
+
+        require('fs').writeFileSync(
+          'error.html',
+          html
+        );
+
+        console.log(
+          '📄 HTML страницы сохранён: error.html'
+        );
+
+      } catch (e) {
+        console.warn(
+          '⚠️ Не удалось сохранить HTML'
+        );
+      }
     }
 
     throw error;
 
   } finally {
-    await browser.close();
+    if (browser.isConnected()) {
+      await browser.close();
+    }
 
     console.log(
       '\nℹ️ Браузер закрыт'

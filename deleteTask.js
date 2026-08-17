@@ -17,6 +17,13 @@ async function deleteTask() {
     `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
   );
 
+  // В видимом режиме замедляем действия Playwright,
+  // чтобы можно было глазами следить за тестом.
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -29,6 +36,13 @@ async function deleteTask() {
 
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
+
+  // Дополнительные паузы только в видимом режиме.
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
 
   const responses = [];
 
@@ -69,8 +83,17 @@ async function deleteTask() {
       timeout: 30000
     });
 
+    await visualPause(1000);
+
+    console.log('📝 Ввод email...');
     await page.fill('[name="email"]', USER_EMAIL);
+
+    await visualPause(500);
+
+    console.log('📝 Ввод пароля...');
     await page.fill('[name="password"]', USER_PASSWORD);
+
+    await visualPause(1000);
 
     console.log('🖱️ Нажатие кнопки "Продолжить"...');
 
@@ -87,6 +110,8 @@ async function deleteTask() {
 
     console.log('✅ Вход выполнен!');
     console.log(`🏠 Текущий URL: ${page.url()}`);
+
+    await visualPause(1500);
 
     // 2️⃣ Поиск пространства
     console.log('\n📁 Поиск пространства...');
@@ -135,6 +160,8 @@ async function deleteTask() {
       }
     }
 
+    await visualPause(1000);
+
     // 3️⃣ Переход на доску проекта
     if (boardHref) {
       console.log(
@@ -142,6 +169,8 @@ async function deleteTask() {
       );
 
       console.log(`🔗 ${boardHref}`);
+
+      await visualPause(1000);
 
       await page.goto(
         new URL(
@@ -176,6 +205,8 @@ async function deleteTask() {
         `📍 URL пространства: ${page.url()}`
       );
 
+      await visualPause(1500);
+
       console.log('\n📂 Поиск проекта...');
 
       const projectLinks = page.locator(
@@ -201,6 +232,8 @@ async function deleteTask() {
         `🔗 Найдена доска проекта: ${projectHref}`
       );
 
+      await visualPause(1000);
+
       await page.goto(
         new URL(
           projectHref,
@@ -220,6 +253,8 @@ async function deleteTask() {
 
     console.log('✅ Доска проекта открыта');
     console.log(`📍 URL проекта: ${page.url()}`);
+
+    await visualPause(1500);
 
     // 4️⃣ Ждём загрузку доски
     console.log(
@@ -273,6 +308,8 @@ async function deleteTask() {
       '✅ Доска полностью загрузилась'
     );
 
+    await visualPause(1500);
+
     // 5️⃣ Создание задачи для удаления
     console.log(
       '\n➕ Создание задачи для удаления...'
@@ -283,6 +320,8 @@ async function deleteTask() {
     console.log(
       '✅ Клик по "Добавить задачу" выполнен'
     );
+
+    await visualPause(1500);
 
     let taskInput = page.locator(
       'textarea[type="text"]:visible'
@@ -301,11 +340,23 @@ async function deleteTask() {
       timeout: 10000
     });
 
+    console.log(
+      '✅ Поле названия задачи найдено'
+    );
+
+    await visualPause(1000);
+
+    console.log(
+      `⌨️ Ввод названия: "${TASK_NAME}"`
+    );
+
     await taskInput.fill(TASK_NAME);
 
     console.log(
       `✅ Введено название: ${TASK_NAME}`
     );
+
+    await visualPause(1500);
 
     // 6️⃣ Сохранение задачи
     console.log(
@@ -313,6 +364,8 @@ async function deleteTask() {
     );
 
     let createTaskResponse = null;
+
+    await visualPause(1000);
 
     try {
       [createTaskResponse] =
@@ -362,6 +415,12 @@ async function deleteTask() {
           }
         );
 
+      await visualPause(1000);
+
+      console.log(
+        '🖱️ Клик вне поля задачи...'
+      );
+
       await page.locator('body').click({
         position: {
           x: 100,
@@ -396,6 +455,8 @@ async function deleteTask() {
     console.log(
       '✅ Задача для удаления создана'
     );
+
+    await visualPause(2000);
 
     // 7️⃣ Ищем созданную задачу
     console.log(
@@ -451,6 +512,8 @@ async function deleteTask() {
       `✅ Задача "${TASK_NAME}" найдена`
     );
 
+    await visualPause(2000);
+
     // 8️⃣ Ищем карточку задачи
     console.log(
       '\n🔎 Поиск карточки задачи...'
@@ -490,6 +553,18 @@ async function deleteTask() {
       '✅ Контейнер задачи найден'
     );
 
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Наведение на карточку задачи...'
+    );
+
+    await taskCard.hover({
+      force: true
+    });
+
+    await visualPause(1500);
+
     // 9️⃣ Поиск меню задачи
     console.log(
       '\n⋯ Поиск меню задачи...'
@@ -527,7 +602,11 @@ async function deleteTask() {
         const candidate =
           locator.nth(i);
 
-        if (await candidate.isVisible()) {
+        if (
+          await candidate
+            .isVisible()
+            .catch(() => false)
+        ) {
           menuButton = candidate;
           break;
         }
@@ -555,7 +634,11 @@ async function deleteTask() {
         const candidate =
           svgParents.nth(i);
 
-        if (await candidate.isVisible()) {
+        if (
+          await candidate
+            .isVisible()
+            .catch(() => false)
+        ) {
           menuButton = candidate;
           break;
         }
@@ -568,11 +651,23 @@ async function deleteTask() {
       );
     }
 
+    console.log(
+      '✅ Кнопка меню задачи найдена'
+    );
+
+    await visualPause(1200);
+
+    console.log(
+      '🖱️ Открытие меню задачи...'
+    );
+
     await menuButton.click();
 
     console.log(
       '✅ Меню задачи открыто'
     );
+
+    await visualPause(2000);
 
     // 🔟 Поиск пункта "Удалить"
     console.log(
@@ -600,7 +695,11 @@ async function deleteTask() {
       const candidate =
         deleteCandidates.nth(i);
 
-      if (await candidate.isVisible()) {
+      if (
+        await candidate
+          .isVisible()
+          .catch(() => false)
+      ) {
         deleteButton = candidate;
         break;
       }
@@ -612,11 +711,23 @@ async function deleteTask() {
       );
     }
 
+    console.log(
+      '✅ Пункт "Удалить" найден'
+    );
+
+    await visualPause(1500);
+
+    console.log(
+      '🖱️ Нажатие "Удалить"...'
+    );
+
     await deleteButton.click();
 
     console.log(
       '✅ Клик по "Удалить" выполнен'
     );
+
+    await visualPause(2000);
 
     // 1️⃣1️⃣ Подтверждение удаления
     console.log(
@@ -658,7 +769,11 @@ async function deleteTask() {
         const candidate =
           locator.nth(i);
 
-        if (await candidate.isVisible()) {
+        if (
+          await candidate
+            .isVisible()
+            .catch(() => false)
+        ) {
           confirmButton = candidate;
           break;
         }
@@ -678,6 +793,9 @@ async function deleteTask() {
     console.log(
       '✅ Кнопка подтверждения найдена'
     );
+
+    // Модалку держим дольше, чтобы её можно было рассмотреть.
+    await visualPause(2500);
 
     // 1️⃣2️⃣ Удаляем + ждём PATCH
     console.log(
@@ -713,6 +831,8 @@ async function deleteTask() {
     console.log(
       '✅ Подтверждение удаления выполнено'
     );
+
+    await visualPause(1500);
 
     // 1️⃣3️⃣ Проверка API
     const status =
@@ -757,6 +877,8 @@ async function deleteTask() {
       );
     }
 
+    await visualPause(1500);
+
     // 1️⃣4️⃣ Проверка журнала responses
     const storedPatch =
       responses.find(
@@ -795,6 +917,9 @@ async function deleteTask() {
       );
     }
 
+    // Финальное состояние доски оставляем на экране.
+    await visualPause(3000);
+
     // 1️⃣6️⃣ Скриншот
     await page.screenshot({
       path: 'task-deleted.png',
@@ -819,6 +944,10 @@ async function deleteTask() {
       console.error(
         `📍 URL в момент ошибки: ${page.url()}`
       );
+
+      // В видимом режиме оставляем экран ошибки
+      // на несколько секунд перед закрытием браузера.
+      await visualPause(3000);
 
       try {
         await page.screenshot({

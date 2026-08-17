@@ -21,6 +21,13 @@ async function deleteColumn() {
     }`
   );
 
+  // В видимом режиме замедляем действия Playwright,
+  // чтобы можно было глазами следить за тестом.
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -34,6 +41,13 @@ async function deleteColumn() {
   const page = await context.newPage();
 
   page.setDefaultTimeout(60000);
+
+  // Дополнительные паузы только в видимом режиме.
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
 
   try {
     /*
@@ -59,15 +73,25 @@ async function deleteColumn() {
         timeout: 30000
       });
 
+    await visualPause(1000);
+
+    console.log('📝 Ввод email...');
+
     await page.fill(
       '[name="email"]',
       USER_EMAIL
     );
 
+    await visualPause(500);
+
+    console.log('📝 Ввод пароля...');
+
     await page.fill(
       '[name="password"]',
       USER_PASSWORD
     );
+
+    await visualPause(1000);
 
     console.log(
       '🖱️ Нажатие кнопки "Продолжить"...'
@@ -89,9 +113,12 @@ async function deleteColumn() {
     );
 
     console.log('✅ Вход выполнен!');
+
     console.log(
       `🏠 Текущий URL: ${page.url()}`
     );
+
+    await visualPause(1500);
 
     /*
      * ============================================================
@@ -157,6 +184,8 @@ async function deleteColumn() {
       }
     }
 
+    await visualPause(1000);
+
     /*
      * ============================================================
      * 3. ПЕРЕХОД НА ДОСКУ ПРОЕКТА
@@ -172,6 +201,8 @@ async function deleteColumn() {
         `🔗 ${boardHref}`
       );
 
+      await visualPause(1000);
+
       await page.goto(
         new URL(
           boardHref,
@@ -182,6 +213,7 @@ async function deleteColumn() {
           timeout: 30000
         }
       );
+
     } else if (projectsHref) {
       console.log(
         '\n📁 Переход к списку проектов...'
@@ -205,6 +237,8 @@ async function deleteColumn() {
       console.log(
         `📍 URL пространства: ${page.url()}`
       );
+
+      await visualPause(1500);
 
       console.log(
         '\n📂 Поиск проекта...'
@@ -237,6 +271,8 @@ async function deleteColumn() {
         `🔗 Найдена доска проекта: ${projectHref}`
       );
 
+      await visualPause(1000);
+
       await page.goto(
         new URL(
           projectHref,
@@ -247,6 +283,7 @@ async function deleteColumn() {
           timeout: 30000
         }
       );
+
     } else {
       throw new Error(
         'Не удалось найти пространство или проект'
@@ -261,6 +298,8 @@ async function deleteColumn() {
       `📍 URL проекта: ${page.url()}`
     );
 
+    await visualPause(1500);
+
     /*
      * ============================================================
      * 4. ЖДЁМ ЗАГРУЗКУ ДОСКИ
@@ -271,6 +310,7 @@ async function deleteColumn() {
       '\n⏳ Ожидание полной загрузки доски...'
     );
 
+    // Исходная функциональная задержка.
     await page.waitForTimeout(2000);
 
     const addColumnText =
@@ -288,6 +328,8 @@ async function deleteColumn() {
     console.log(
       '✅ Доска полностью загрузилась'
     );
+
+    await visualPause(1500);
 
     /*
      * ============================================================
@@ -328,15 +370,27 @@ async function deleteColumn() {
       );
     }
 
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Нажатие "Добавить колонку"...'
+    );
+
     await addColumnButton.click();
 
     console.log(
       '✅ Клик по "Добавить колонку" выполнен'
     );
 
+    await visualPause(1500);
+
     /*
      * Ищем появившееся поле для названия.
      */
+
+    console.log(
+      '\n📝 Поиск поля названия колонки...'
+    );
 
     const textareas =
       page.locator('textarea');
@@ -370,6 +424,16 @@ async function deleteColumn() {
       );
     }
 
+    console.log(
+      '✅ Поле названия колонки найдено'
+    );
+
+    await visualPause(1000);
+
+    console.log(
+      `⌨️ Ввод названия: "${COLUMN_NAME}"`
+    );
+
     await columnInput.fill(
       COLUMN_NAME
     );
@@ -377,6 +441,8 @@ async function deleteColumn() {
     console.log(
       `✅ Введено название: ${COLUMN_NAME}`
     );
+
+    await visualPause(1500);
 
     /*
      * ============================================================
@@ -411,10 +477,11 @@ async function deleteColumn() {
         }
       );
 
-    /*
-     * В интерфейсе создание колонки
-     * подтверждаем Enter.
-     */
+    await visualPause(1000);
+
+    console.log(
+      '⌨️ Нажатие Enter...'
+    );
 
     await columnInput.press(
       'Enter'
@@ -449,6 +516,8 @@ async function deleteColumn() {
     console.log(
       '✅ Колонка для удаления успешно создана'
     );
+
+    await visualPause(2000);
 
     /*
      * ============================================================
@@ -522,6 +591,8 @@ async function deleteColumn() {
       `✅ Колонка "${COLUMN_NAME}" найдена`
     );
 
+    await visualPause(2000);
+
     /*
      * ============================================================
      * 8. ИЩЕМ КОНТЕЙНЕР ИМЕННО ЭТОЙ КОЛОНКИ
@@ -531,17 +602,6 @@ async function deleteColumn() {
     console.log(
       '\n🔎 Поиск контейнера колонки...'
     );
-
-    /*
-     * У заголовка колонки рядом находится SVG
-     * с тремя точками.
-     *
-     * Поднимаемся вверх по DOM до контейнера,
-     * который содержит:
-     *
-     * - название нашей колонки;
-     * - SVG трёх точек.
-     */
 
     let columnContainer =
       visibleColumnTitle;
@@ -626,6 +686,8 @@ async function deleteColumn() {
       '✅ Контейнер колонки найден'
     );
 
+    await visualPause(1500);
+
     /*
      * ============================================================
      * 9. ОТКРЫВАЕМ МЕНЮ КОЛОНКИ
@@ -635,11 +697,6 @@ async function deleteColumn() {
     console.log(
       '\n⋯ Поиск меню колонки...'
     );
-
-    /*
-     * У SVG кликабельным является родительский DIV
-     * с cursor-pointer.
-     */
 
     const menuButton =
       menuSvg.locator(
@@ -654,25 +711,24 @@ async function deleteColumn() {
       );
     }
 
-    /*
-     * Кнопка появляется при hover колонки.
-     */
+    console.log(
+      '🖱️ Наведение на колонку...'
+    );
 
     await columnContainer.hover();
 
+    // Исходная функциональная задержка.
     await page.waitForTimeout(
       300
     );
 
-    await menuButton.click();
+    await visualPause(1200);
 
-    /*
-     * Не считаем меню открытым только потому,
-     * что click() прошёл.
-     *
-     * Проверяем, что реально появился
-     * видимый пункт "Удалить".
-     */
+    console.log(
+      '🖱️ Открытие меню колонки...'
+    );
+
+    await menuButton.click();
 
     const deleteTexts =
       page.getByText(
@@ -736,6 +792,9 @@ async function deleteColumn() {
       '✅ Меню колонки открыто'
     );
 
+    // Оставляем меню открытым, чтобы его было видно.
+    await visualPause(2000);
+
     /*
      * ============================================================
      * 10. КЛИКАЕМ "УДАЛИТЬ"
@@ -745,16 +804,6 @@ async function deleteColumn() {
     console.log(
       '\n🗑️ Поиск пункта "Удалить"...'
     );
-
-    /*
-     * Сам текст находится внутри:
-     *
-     * div.cursor-pointer
-     *   div ... Удалить
-     *
-     * Поэтому кликаем не по текстовому div,
-     * а по ближайшему cursor-pointer.
-     */
 
     const deleteButton =
       deleteText.locator(
@@ -769,11 +818,23 @@ async function deleteColumn() {
       );
     }
 
+    console.log(
+      '✅ Пункт "Удалить" найден'
+    );
+
+    await visualPause(1500);
+
+    console.log(
+      '🖱️ Нажатие "Удалить"...'
+    );
+
     await deleteButton.click();
 
     console.log(
       '✅ Клик по "Удалить" выполнен'
     );
+
+    await visualPause(2000);
 
     /*
      * ============================================================
@@ -798,6 +859,9 @@ async function deleteColumn() {
     console.log(
       '✅ Модальное окно подтверждения открыто'
     );
+
+    // Модалку специально держим перед глазами подольше.
+    await visualPause(2500);
 
     /*
      * ============================================================
@@ -840,6 +904,8 @@ async function deleteColumn() {
     console.log(
       '✅ Подтверждение удаления выполнено'
     );
+
+    await visualPause(1500);
 
     /*
      * ============================================================
@@ -893,6 +959,8 @@ async function deleteColumn() {
       );
     }
 
+    await visualPause(2000);
+
     /*
      * ============================================================
      * 14. ПРОВЕРЯЕМ ИСЧЕЗНОВЕНИЕ КОЛОНКИ
@@ -912,12 +980,8 @@ async function deleteColumn() {
       console.log(
         `✅ Колонка "${COLUMN_NAME}" исчезла с доски`
       );
-    } catch (error) {
-      /*
-       * Дополнительная проверка:
-       * возможно старый locator уже detached.
-       */
 
+    } catch (error) {
       const remaining =
         page.getByText(
           COLUMN_NAME,
@@ -961,6 +1025,9 @@ async function deleteColumn() {
       );
     }
 
+    // Показываем итоговое состояние доски.
+    await visualPause(3000);
+
     /*
      * ============================================================
      * 15. СКРИНШОТ
@@ -979,6 +1046,7 @@ async function deleteColumn() {
     console.log(
       '\n✨ Колонка успешно создана и удалена!'
     );
+
   } catch (error) {
     console.error(
       '\n❌ Ошибка при удалении колонки:',
@@ -990,6 +1058,10 @@ async function deleteColumn() {
         `📍 URL в момент ошибки: ${page.url()}`
       );
 
+      // В видимом режиме оставляем проблемный экран
+      // на несколько секунд.
+      await visualPause(3000);
+
       try {
         await page.screenshot({
           path: 'column-delete-error.png',
@@ -999,6 +1071,7 @@ async function deleteColumn() {
         console.log(
           '📸 Скриншот ошибки сохранён: column-delete-error.png'
         );
+
       } catch (e) {
         console.warn(
           '⚠️ Не удалось сохранить скриншот'
@@ -1018,6 +1091,7 @@ async function deleteColumn() {
         console.log(
           '📄 HTML страницы сохранён: column-delete-error.html'
         );
+
       } catch (e) {
         console.warn(
           '⚠️ Не удалось сохранить HTML'
@@ -1026,6 +1100,7 @@ async function deleteColumn() {
     }
 
     throw error;
+
   } finally {
     if (
       browser.isConnected()

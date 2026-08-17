@@ -17,6 +17,13 @@ async function completeTask() {
     `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
   );
 
+  // В видимом режиме замедляем действия Playwright,
+  // чтобы можно было глазами следить за тестом.
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -29,6 +36,13 @@ async function completeTask() {
 
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
+
+  // Дополнительные паузы только в видимом режиме.
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
 
   const responses = [];
 
@@ -69,8 +83,17 @@ async function completeTask() {
       timeout: 30000
     });
 
+    await visualPause(1000);
+
+    console.log('📝 Ввод email...');
     await page.fill('[name="email"]', USER_EMAIL);
+
+    await visualPause(500);
+
+    console.log('📝 Ввод пароля...');
     await page.fill('[name="password"]', USER_PASSWORD);
+
+    await visualPause(1000);
 
     console.log('🖱️ Нажатие кнопки "Продолжить"...');
 
@@ -87,6 +110,8 @@ async function completeTask() {
 
     console.log('✅ Вход выполнен!');
     console.log(`🏠 Текущий URL: ${page.url()}`);
+
+    await visualPause(1500);
 
     // 2️⃣ Поиск пространства
     console.log('\n📁 Поиск пространства...');
@@ -135,6 +160,8 @@ async function completeTask() {
       }
     }
 
+    await visualPause(1000);
+
     // 3️⃣ Переход на доску проекта
     if (boardHref) {
       console.log(
@@ -142,6 +169,8 @@ async function completeTask() {
       );
 
       console.log(`🔗 ${boardHref}`);
+
+      await visualPause(1000);
 
       await page.goto(
         new URL(
@@ -176,6 +205,8 @@ async function completeTask() {
         `📍 URL пространства: ${page.url()}`
       );
 
+      await visualPause(1500);
+
       console.log('\n📂 Поиск проекта...');
 
       const projectLinks = page.locator(
@@ -201,6 +232,8 @@ async function completeTask() {
         `🔗 Найдена доска проекта: ${projectHref}`
       );
 
+      await visualPause(1000);
+
       await page.goto(
         new URL(
           projectHref,
@@ -220,6 +253,8 @@ async function completeTask() {
 
     console.log('✅ Доска проекта открыта');
     console.log(`📍 URL проекта: ${page.url()}`);
+
+    await visualPause(1500);
 
     // 4️⃣ Ожидание загрузки доски
     console.log(
@@ -273,6 +308,8 @@ async function completeTask() {
       '✅ Доска полностью загрузилась'
     );
 
+    await visualPause(1500);
+
     // 5️⃣ Создание задачи
     console.log(
       '\n➕ Создание задачи для завершения...'
@@ -283,6 +320,8 @@ async function completeTask() {
     console.log(
       '✅ Клик по "Добавить задачу" выполнен'
     );
+
+    await visualPause(1500);
 
     let taskInput = page.locator(
       'textarea[type="text"]:visible'
@@ -301,11 +340,23 @@ async function completeTask() {
       timeout: 10000
     });
 
+    console.log(
+      '✅ Поле названия задачи найдено'
+    );
+
+    await visualPause(1000);
+
+    console.log(
+      `⌨️ Ввод названия: "${TASK_NAME}"`
+    );
+
     await taskInput.fill(TASK_NAME);
 
     console.log(
       `✅ Введено название: ${TASK_NAME}`
     );
+
+    await visualPause(1500);
 
     // 6️⃣ Сохраняем созданную задачу
     console.log(
@@ -313,6 +364,8 @@ async function completeTask() {
     );
 
     let createTaskResponse = null;
+
+    await visualPause(1000);
 
     try {
       [createTaskResponse] =
@@ -362,6 +415,12 @@ async function completeTask() {
           }
         );
 
+      await visualPause(1000);
+
+      console.log(
+        '🖱️ Клик вне поля задачи...'
+      );
+
       await page.locator('body').click({
         position: {
           x: 100,
@@ -396,6 +455,8 @@ async function completeTask() {
     console.log(
       '✅ Задача для завершения создана'
     );
+
+    await visualPause(2000);
 
     // 7️⃣ Ищем созданную задачу
     console.log(
@@ -451,6 +512,8 @@ async function completeTask() {
       `✅ Задача "${TASK_NAME}" найдена`
     );
 
+    await visualPause(2000);
+
     // 8️⃣ Открываем задачу
     console.log(
       '\n📝 Открытие задачи...'
@@ -462,11 +525,15 @@ async function completeTask() {
       '✅ Клик по задаче выполнен'
     );
 
+    // Исходная функциональная задержка.
     await page.waitForTimeout(1000);
 
     console.log(
       `📍 URL после открытия задачи: ${page.url()}`
     );
+
+    // Даём посмотреть на открытую карточку задачи.
+    await visualPause(2000);
 
     // 9️⃣ Поиск кнопки "Завершить"
     console.log(
@@ -501,7 +568,11 @@ async function completeTask() {
         const candidate =
           locator.nth(i);
 
-        if (await candidate.isVisible()) {
+        if (
+          await candidate
+            .isVisible()
+            .catch(() => false)
+        ) {
           completeButton = candidate;
           break;
         }
@@ -521,6 +592,9 @@ async function completeTask() {
     console.log(
       '✅ Кнопка "Завершить" найдена'
     );
+
+    // Оставляем кнопку перед глазами.
+    await visualPause(2000);
 
     // 🔟 Завершение задачи + PATCH
     console.log(
@@ -558,6 +632,8 @@ async function completeTask() {
     console.log(
       '✅ Клик по "Завершить" выполнен'
     );
+
+    await visualPause(2000);
 
     // 1️⃣1️⃣ Проверка API
     const status =
@@ -617,9 +693,17 @@ async function completeTask() {
       console.log(
         '✅ PATCH присутствует в журнале responses'
       );
+    } else {
+      console.warn(
+        '⚠️ PATCH отсутствует в журнале responses'
+      );
     }
 
+    // Исходная задержка после завершения.
     await page.waitForTimeout(1500);
+
+    // Даём посмотреть на итоговое состояние задачи.
+    await visualPause(3000);
 
     // 1️⃣3️⃣ Скриншот
     await page.screenshot({
@@ -641,49 +725,56 @@ async function completeTask() {
       error.message
     );
 
-    console.error(
-      `📍 URL в момент ошибки: ${page.url()}`
-    );
-
-    try {
-      await page.screenshot({
-        path: 'task-complete-error.png',
-        fullPage: true
-      });
-
-      console.log(
-        '📸 Скриншот ошибки сохранён: task-complete-error.png'
+    if (!page.isClosed()) {
+      console.error(
+        `📍 URL в момент ошибки: ${page.url()}`
       );
 
-    } catch (e) {
-      console.warn(
-        '⚠️ Не удалось сохранить скриншот'
-      );
-    }
+      // При ошибке оставляем проблемный экран перед глазами.
+      await visualPause(3000);
 
-    try {
-      const html =
-        await page.content();
+      try {
+        await page.screenshot({
+          path: 'task-complete-error.png',
+          fullPage: true
+        });
 
-      require('fs').writeFileSync(
-        'task-complete-error.html',
-        html
-      );
+        console.log(
+          '📸 Скриншот ошибки сохранён: task-complete-error.png'
+        );
 
-      console.log(
-        '📄 HTML страницы сохранён: task-complete-error.html'
-      );
+      } catch (e) {
+        console.warn(
+          '⚠️ Не удалось сохранить скриншот'
+        );
+      }
 
-    } catch (e) {
-      console.warn(
-        '⚠️ Не удалось сохранить HTML'
-      );
+      try {
+        const html =
+          await page.content();
+
+        require('fs').writeFileSync(
+          'task-complete-error.html',
+          html
+        );
+
+        console.log(
+          '📄 HTML страницы сохранён: task-complete-error.html'
+        );
+
+      } catch (e) {
+        console.warn(
+          '⚠️ Не удалось сохранить HTML'
+        );
+      }
     }
 
     throw error;
 
   } finally {
-    await browser.close();
+    if (browser.isConnected()) {
+      await browser.close();
+    }
 
     console.log(
       '\nℹ️ Браузер закрыт'

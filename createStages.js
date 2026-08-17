@@ -17,6 +17,13 @@ async function createColumn() {
     `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
   );
 
+  // В видимом режиме замедляем действия Playwright,
+  // чтобы было удобно следить за тестом глазами
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -29,6 +36,13 @@ async function createColumn() {
 
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
+
+  // Дополнительные паузы только в видимом режиме
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
 
   try {
     // 1️⃣ Авторизация
@@ -44,19 +58,37 @@ async function createColumn() {
       timeout: 30000
     });
 
+    await visualPause(1000);
+
     console.log('📝 Ввод email...');
-    await page.fill('[name="email"]', USER_EMAIL);
+
+    await page.fill(
+      '[name="email"]',
+      USER_EMAIL
+    );
+
+    await visualPause(500);
 
     console.log('📝 Ввод пароля...');
-    await page.fill('[name="password"]', USER_PASSWORD);
 
-    console.log('🖱️ Нажатие кнопки "Продолжить"...');
+    await page.fill(
+      '[name="password"]',
+      USER_PASSWORD
+    );
+
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Нажатие кнопки "Продолжить"...'
+    );
 
     await page
       .locator('button[type="submit"]')
       .click();
 
-    console.log('⏳ Ожидание успешного входа...');
+    console.log(
+      '⏳ Ожидание успешного входа...'
+    );
 
     await page.waitForURL(
       /\/main|\/dashboard|\/workspace/,
@@ -68,8 +100,12 @@ async function createColumn() {
     console.log('✅ Вход выполнен!');
     console.log(`🏠 Текущий URL: ${page.url()}`);
 
+    await visualPause(1500);
+
     // 2️⃣ Поиск пространства
-    console.log('\n📁 Поиск пространства или проекта...');
+    console.log(
+      '\n📁 Поиск пространства или проекта...'
+    );
 
     const spaceLinks = page.locator(
       'a[href*="/spaces/"]'
@@ -80,7 +116,8 @@ async function createColumn() {
       timeout: 20000
     });
 
-    const linksCount = await spaceLinks.count();
+    const linksCount =
+      await spaceLinks.count();
 
     console.log(
       `🔎 Найдено ссылок, содержащих /spaces/: ${linksCount}`
@@ -89,16 +126,23 @@ async function createColumn() {
     let boardHref = null;
     let projectsHref = null;
 
-    for (let i = 0; i < linksCount; i++) {
-      const href = await spaceLinks
-        .nth(i)
-        .getAttribute('href');
+    for (
+      let i = 0;
+      i < linksCount;
+      i++
+    ) {
+      const href =
+        await spaceLinks
+          .nth(i)
+          .getAttribute('href');
 
       if (!href) {
         continue;
       }
 
-      console.log(`   🔗 ${href}`);
+      console.log(
+        `   🔗 ${href}`
+      );
 
       if (
         href.includes('/tasks') &&
@@ -115,13 +159,19 @@ async function createColumn() {
       }
     }
 
+    await visualPause(1000);
+
     // 3️⃣ Переход на доску
     if (boardHref) {
       console.log(
         '\n📂 Найдена прямая ссылка на доску проекта'
       );
 
-      console.log(`🔗 ${boardHref}`);
+      console.log(
+        `🔗 ${boardHref}`
+      );
+
+      await visualPause(1000);
 
       await page.goto(
         new URL(
@@ -139,7 +189,9 @@ async function createColumn() {
         '\n📁 Переход к списку проектов пространства...'
       );
 
-      console.log(`🔗 ${projectsHref}`);
+      console.log(
+        `🔗 ${projectsHref}`
+      );
 
       await page.goto(
         new URL(
@@ -156,16 +208,23 @@ async function createColumn() {
         `📍 URL пространства: ${page.url()}`
       );
 
-      console.log('\n📂 Поиск проекта...');
+      await visualPause(1500);
 
-      const projectLinks = page.locator(
-        'a[href*="/spaces/"][href*="/tasks"]'
+      console.log(
+        '\n📂 Поиск проекта...'
       );
 
-      await projectLinks.first().waitFor({
-        state: 'visible',
-        timeout: 20000
-      });
+      const projectLinks =
+        page.locator(
+          'a[href*="/spaces/"][href*="/tasks"]'
+        );
+
+      await projectLinks
+        .first()
+        .waitFor({
+          state: 'visible',
+          timeout: 20000
+        });
 
       const projectHref =
         await projectLinks
@@ -181,6 +240,8 @@ async function createColumn() {
       console.log(
         `🔗 Найдена доска проекта: ${projectHref}`
       );
+
+      await visualPause(1000);
 
       await page.goto(
         new URL(
@@ -199,8 +260,15 @@ async function createColumn() {
       );
     }
 
-    console.log('✅ Доска проекта открыта');
-    console.log(`📍 URL проекта: ${page.url()}`);
+    console.log(
+      '✅ Доска проекта открыта'
+    );
+
+    console.log(
+      `📍 URL проекта: ${page.url()}`
+    );
+
+    await visualPause(1500);
 
     // 4️⃣ Ждём загрузку доски
     console.log(
@@ -229,11 +297,17 @@ async function createColumn() {
       const count =
         await addColumnCandidates.count();
 
-      for (let i = 0; i < count; i++) {
+      for (
+        let i = 0;
+        i < count;
+        i++
+      ) {
         const candidate =
           addColumnCandidates.nth(i);
 
-        if (await candidate.isVisible()) {
+        if (
+          await candidate.isVisible()
+        ) {
           addColumn = candidate;
           break;
         }
@@ -258,6 +332,8 @@ async function createColumn() {
       '✅ Доска полностью загрузилась'
     );
 
+    await visualPause(1500);
+
     // 5️⃣ Добавление колонки
     console.log(
       '\n➕ Нажатие на "Добавить колонку"...'
@@ -269,21 +345,25 @@ async function createColumn() {
       '✅ Клик по "Добавить колонку" выполнен'
     );
 
+    await visualPause(1500);
+
     // 6️⃣ Поле ввода названия
     console.log(
       '\n📝 Поиск поля названия колонки...'
     );
 
-    let columnInput = page.locator(
-      'textarea[type="text"]:visible'
-    );
+    let columnInput =
+      page.locator(
+        'textarea[type="text"]:visible'
+      );
 
     if (
       (await columnInput.count()) === 0
     ) {
-      columnInput = page
-        .locator('textarea:visible')
-        .first();
+      columnInput =
+        page
+          .locator('textarea:visible')
+          .first();
     }
 
     await columnInput.waitFor({
@@ -295,6 +375,12 @@ async function createColumn() {
       '✅ Поле названия колонки найдено'
     );
 
+    await visualPause(1000);
+
+    console.log(
+      `⌨️ Ввод названия: "${COLUMN_NAME}"`
+    );
+
     await columnInput.fill(
       COLUMN_NAME
     );
@@ -303,10 +389,14 @@ async function createColumn() {
       `✅ Введено название: ${COLUMN_NAME}`
     );
 
+    await visualPause(1500);
+
     // 7️⃣ Сохранение по Enter + ожидание POST
     console.log(
       '\n💾 Сохранение колонки клавишей Enter...'
     );
+
+    await visualPause(1000);
 
     const [response] =
       await Promise.all([
@@ -337,6 +427,8 @@ async function createColumn() {
     console.log(
       '✅ Enter нажат'
     );
+
+    await visualPause(1500);
 
     // 8️⃣ Проверка ответа сервера
     const status =
@@ -374,27 +466,37 @@ async function createColumn() {
       const data =
         await response.json();
 
-      console.log('📦 Ответ сервера:');
+      console.log(
+        '📦 Ответ сервера:'
+      );
 
-      if (data.id !== undefined) {
+      if (
+        data.id !== undefined
+      ) {
         console.log(
           `   ID: ${data.id}`
         );
       }
 
-      if (data.name !== undefined) {
+      if (
+        data.name !== undefined
+      ) {
         console.log(
           `   Название: ${data.name}`
         );
       }
 
-      if (data.order !== undefined) {
+      if (
+        data.order !== undefined
+      ) {
         console.log(
           `   Order: ${data.order}`
         );
       }
 
-      if (data.projectId !== undefined) {
+      if (
+        data.projectId !== undefined
+      ) {
         console.log(
           `   Project ID: ${data.projectId}`
         );
@@ -438,6 +540,9 @@ async function createColumn() {
       `✅ Колонка "${COLUMN_NAME}" отображается на доске`
     );
 
+    // Оставляем итоговое состояние на экране
+    await visualPause(3000);
+
     // 🔟 Скриншот
     await page.screenshot({
       path: 'column-created.png',
@@ -462,6 +567,10 @@ async function createColumn() {
       `📍 URL в момент ошибки: ${page.url()}`
     );
 
+    // В видимом режиме оставляем экран ошибки
+    // на несколько секунд
+    await visualPause(3000);
+
     try {
       await page.screenshot({
         path: 'column-error.png',
@@ -471,6 +580,7 @@ async function createColumn() {
       console.log(
         '📸 Скриншот ошибки сохранён: column-error.png'
       );
+
     } catch (e) {
       console.warn(
         '⚠️ Не удалось сохранить скриншот'

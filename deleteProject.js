@@ -19,6 +19,12 @@ async function deleteProject() {
     }`
   );
 
+  // В видимом режиме замедляем действия Playwright
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -31,6 +37,13 @@ async function deleteProject() {
 
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
+
+  // Дополнительные паузы только в видимом режиме
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
 
   try {
     // ============================================================
@@ -49,8 +62,17 @@ async function deleteProject() {
       timeout: 30000
     });
 
+    await visualPause(1000);
+
+    console.log('📝 Ввод email...');
     await page.fill('[name="email"]', USER_EMAIL);
+
+    await visualPause(500);
+
+    console.log('📝 Ввод пароля...');
     await page.fill('[name="password"]', USER_PASSWORD);
+
+    await visualPause(1000);
 
     console.log('🖱️ Нажатие кнопки "Продолжить"...');
 
@@ -67,6 +89,8 @@ async function deleteProject() {
 
     console.log('✅ Вход выполнен!');
     console.log(`🏠 Текущий URL: ${page.url()}`);
+
+    await visualPause(1500);
 
     // ============================================================
     // 2. ПОИСК ПРОСТРАНСТВА
@@ -120,6 +144,8 @@ async function deleteProject() {
       `✅ Найдено пространство: ${projectsHref}`
     );
 
+    await visualPause(1000);
+
     // ============================================================
     // 3. ПЕРЕХОД В ПРОЕКТЫ
     // ============================================================
@@ -142,6 +168,8 @@ async function deleteProject() {
     console.log(
       `📍 URL списка проектов: ${page.url()}`
     );
+
+    await visualPause(1500);
 
     // ============================================================
     // 4. ОЖИДАНИЕ ПОЛНОЙ ЗАГРУЗКИ СТРАНИЦЫ ПРОЕКТОВ
@@ -203,6 +231,8 @@ async function deleteProject() {
       '✅ Страница проектов полностью загрузилась'
     );
 
+    await visualPause(1500);
+
     // ============================================================
     // 5. СОЗДАНИЕ ПРОЕКТА
     // ============================================================
@@ -217,9 +247,15 @@ async function deleteProject() {
       '✅ Клик по "Добавить проект" выполнен'
     );
 
+    await visualPause(1500);
+
     // ============================================================
     // 6. ПУСТОЙ ПРОЕКТ
     // ============================================================
+
+    console.log(
+      '\n📄 Выбор "Пустой проект"...'
+    );
 
     const emptyProject =
       page.getByText(
@@ -234,11 +270,15 @@ async function deleteProject() {
       timeout: 15000
     });
 
+    await visualPause(1000);
+
     await emptyProject.first().click();
 
     console.log(
       '✅ Выбран "Пустой проект"'
     );
+
+    await visualPause(1500);
 
     // ============================================================
     // 7. НАЗВАНИЕ
@@ -267,6 +307,12 @@ async function deleteProject() {
       timeout: 15000
     });
 
+    await visualPause(1000);
+
+    console.log(
+      `⌨️ Ввод названия: "${PROJECT_NAME}"`
+    );
+
     await projectInput.fill(
       PROJECT_NAME
     );
@@ -274,6 +320,8 @@ async function deleteProject() {
     console.log(
       `✅ Введено название: ${PROJECT_NAME}`
     );
+
+    await visualPause(1500);
 
     // ============================================================
     // 8. СОЗДАТЬ ПРОЕКТ
@@ -293,15 +341,25 @@ async function deleteProject() {
       timeout: 15000
     });
 
+    await visualPause(1000);
+
     console.log(
       '\n💾 Создание проекта...'
     );
 
     await createButton.click();
 
+    console.log(
+      '✅ Клик по "Создать проект" выполнен'
+    );
+
     // ============================================================
     // 9. ОЖИДАНИЕ ДОСКИ НОВОГО ПРОЕКТА
     // ============================================================
+
+    console.log(
+      '⏳ Ожидание открытия нового проекта...'
+    );
 
     await page.waitForURL(
       url =>
@@ -319,6 +377,8 @@ async function deleteProject() {
     console.log(
       `📍 URL проекта: ${page.url()}`
     );
+
+    await visualPause(2000);
 
     // ============================================================
     // 10. ВОЗВРАЩАЕМСЯ В СПИСОК
@@ -339,7 +399,6 @@ async function deleteProject() {
       }
     );
 
-    // Снова ждём загрузку, а не используем фиксированный sleep.
     console.log(
       '⏳ Ожидание загрузки списка проектов...'
     );
@@ -401,6 +460,8 @@ async function deleteProject() {
       `✅ Проект "${PROJECT_NAME}" найден`
     );
 
+    await visualPause(2000);
+
     // ============================================================
     // 11. ИЩЕМ КАРТОЧКУ ПРОЕКТА
     // ============================================================
@@ -454,11 +515,17 @@ async function deleteProject() {
       '✅ Карточка проекта найдена'
     );
 
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Наведение на карточку проекта...'
+    );
+
     await projectCard.hover({
       force: true
     });
 
-    await page.waitForTimeout(500);
+    await visualPause(1500);
 
     // ============================================================
     // 12. МЕНЮ ПРОЕКТА
@@ -467,12 +534,6 @@ async function deleteProject() {
     console.log(
       '\n⋯ Поиск меню проекта...'
     );
-
-    /*
-     * Сначала ищем настоящие button внутри карточки.
-     * Для проектов старый DOM уже показывал
-     * button.dynamic-button.cursor-pointer.
-     */
 
     let menuButton = null;
 
@@ -527,11 +588,23 @@ async function deleteProject() {
       );
     }
 
+    console.log(
+      '✅ Кнопка меню проекта найдена'
+    );
+
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Открытие меню проекта...'
+    );
+
     await menuButton.click();
 
     console.log(
       '✅ Клик по меню проекта выполнен'
     );
+
+    await visualPause(2000);
 
     // ============================================================
     // 13. УДАЛИТЬ ПРОЕКТ
@@ -594,10 +667,20 @@ async function deleteProject() {
       );
     }
 
+    console.log(
+      '✅ Пункт "Удалить проект" найден'
+    );
+
+    await visualPause(1500);
+
     const deleteButton =
       deleteText.locator(
         'xpath=ancestor::*[contains(@class,"cursor-pointer")][1]'
       );
+
+    console.log(
+      '🖱️ Нажатие "Удалить проект"...'
+    );
 
     if (
       (await deleteButton.count()) > 0
@@ -610,6 +693,8 @@ async function deleteProject() {
     console.log(
       '✅ Клик по "Удалить проект" выполнен'
     );
+
+    await visualPause(2000);
 
     // ============================================================
     // 14. ПОДТВЕРЖДЕНИЕ
@@ -632,6 +717,9 @@ async function deleteProject() {
     console.log(
       '✅ Окно подтверждения открыто'
     );
+
+    // Даём возможность глазами увидеть модалку удаления
+    await visualPause(2000);
 
     // ============================================================
     // 15. PATCH
@@ -696,6 +784,8 @@ async function deleteProject() {
       '✅ Сервер успешно удалил проект / отправил его в корзину'
     );
 
+    await visualPause(2000);
+
     // ============================================================
     // 16. ПРОВЕРКА UI
     // ============================================================
@@ -719,6 +809,9 @@ async function deleteProject() {
         '⚠️ Проект ещё отображается либо список ещё не обновился'
       );
     }
+
+    // Финальный экран держим подольше
+    await visualPause(3000);
 
     // ============================================================
     // 17. СКРИНШОТ
@@ -747,6 +840,10 @@ async function deleteProject() {
       console.error(
         `📍 URL в момент ошибки: ${page.url()}`
       );
+
+      // Оставляем проблемный экран видимым,
+      // чтобы можно было понять место падения
+      await visualPause(3000);
 
       try {
         await page.screenshot({

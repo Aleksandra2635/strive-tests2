@@ -17,6 +17,13 @@ async function createProject() {
     `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
   );
 
+  // В видимом режиме замедляем действия,
+  // чтобы было удобно следить за тестом глазами
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -29,6 +36,13 @@ async function createProject() {
 
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
+
+  // Дополнительная пауза только в видимом режиме
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
 
   try {
     // 1️⃣ Вход
@@ -46,8 +60,15 @@ async function createProject() {
       timeout: 30000
     });
 
+    console.log('⌨️ Ввод email...');
     await page.fill('[name="email"]', USER_EMAIL);
+
+    await visualPause(500);
+
+    console.log('⌨️ Ввод пароля...');
     await page.fill('[name="password"]', USER_PASSWORD);
+
+    await visualPause(1000);
 
     console.log('🖱️ Нажатие кнопки "Продолжить"...');
 
@@ -64,6 +85,8 @@ async function createProject() {
 
     console.log('✅ Вход выполнен!');
     console.log(`🏠 Текущий URL: ${page.url()}`);
+
+    await visualPause(1500);
 
     // 2️⃣ Поиск пространства
     console.log('\n📁 Поиск доступного пространства...');
@@ -109,7 +132,7 @@ async function createProject() {
     }
 
     // Если отдельную ссылку /projects не нашли,
-    // используем первую ссылку пространства.
+    // используем первую ссылку пространства
     if (!spaceLink) {
       console.warn(
         '⚠️ Ссылка вида /spaces/.../projects не найдена. Используем первую ссылку /spaces/...'
@@ -120,6 +143,10 @@ async function createProject() {
     }
 
     console.log(`🔗 Найден путь пространства: ${spaceHref}`);
+
+    await visualPause(1000);
+
+    console.log('🖱️ Переход в пространство...');
 
     await spaceLink.click();
 
@@ -135,6 +162,8 @@ async function createProject() {
     console.log(
       `📍 URL после перехода: ${page.url()}`
     );
+
+    await visualPause(1500);
 
     // 3️⃣ Добавить проект
     console.log(
@@ -153,11 +182,19 @@ async function createProject() {
       timeout: 15000
     });
 
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Нажатие "Добавить проект"...'
+    );
+
     await addProject.click();
 
     console.log(
       '✅ Клик по "Добавить проект" выполнен'
     );
+
+    await visualPause(1500);
 
     // 4️⃣ Пустой проект
     console.log(
@@ -176,15 +213,23 @@ async function createProject() {
       timeout: 15000
     });
 
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Выбор "Пустой проект"...'
+    );
+
     await emptyProject.click();
 
     console.log(
       '✅ Клик по "Пустой проект" выполнен'
     );
 
+    await visualPause(1500);
+
     // 5️⃣ Название проекта
     console.log(
-      '\n📝 Ввод названия проекта...'
+      '\n📝 Поиск поля названия проекта...'
     );
 
     let projectNameInput = page.locator(
@@ -208,11 +253,17 @@ async function createProject() {
       timeout: 15000
     });
 
+    console.log(
+      `⌨️ Ввод названия проекта: "${PROJECT_NAME}"`
+    );
+
     await projectNameInput.fill(PROJECT_NAME);
 
     console.log(
       `✅ Введено название: ${PROJECT_NAME}`
     );
+
+    await visualPause(1500);
 
     // 6️⃣ Создать проект
     console.log(
@@ -231,11 +282,19 @@ async function createProject() {
       timeout: 15000
     });
 
+    await visualPause(1000);
+
+    console.log(
+      '🖱️ Нажатие "Создать проект"...'
+    );
+
     await createProjectButton.click();
 
     console.log(
       '✅ Клик по "Создать проект" выполнен'
     );
+
+    await visualPause(2000);
 
     // 7️⃣ Проверка результата
     console.log(
@@ -273,6 +332,8 @@ async function createProject() {
       );
     }
 
+    await visualPause(1500);
+
     // 8️⃣ Проверяем, что название проекта появилось
     console.log(
       '\n🔎 Проверка созданного проекта...'
@@ -303,6 +364,9 @@ async function createProject() {
       );
     }
 
+    // Даём посмотреть итоговый экран
+    await visualPause(3000);
+
     // Скриншот результата
     await page.screenshot({
       path: 'create-project-result.png',
@@ -322,6 +386,10 @@ async function createProject() {
     console.error(
       `📍 URL в момент ошибки: ${page.url()}`
     );
+
+    // В видимом режиме даём посмотреть,
+    // на каком экране произошла ошибка
+    await visualPause(3000);
 
     try {
       await page.screenshot({

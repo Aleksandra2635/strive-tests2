@@ -2,7 +2,7 @@ name: 🕐 Ежедневные тесты StriveApp
 
 on:
   schedule:
-    - cron: "30 13 * * *"
+    - cron: "30 08 * * *"
   workflow_dispatch:
 
 jobs:

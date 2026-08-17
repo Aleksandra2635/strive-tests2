@@ -17,6 +17,11 @@ async function createTask() {
     `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
   );
 
+  if (!browserOptions.headless) {
+    browserOptions.slowMo = 700;
+    console.log('🐢 Визуальный режим: slowMo = 700 мс');
+  }
+
   const browser = await chromium.launch(browserOptions);
 
   const context = await browser.newContext({
@@ -29,6 +34,12 @@ async function createTask() {
 
   const page = await context.newPage();
   page.setDefaultTimeout(60000);
+
+  const visualPause = async (ms = 1000) => {
+    if (!browserOptions.headless) {
+      await page.waitForTimeout(ms);
+    }
+  };
 
   const responses = [];
 
@@ -65,8 +76,17 @@ async function createTask() {
       timeout: 30000
     });
 
+    await visualPause(1000);
+
+    console.log('📝 Ввод email...');
     await page.fill('[name="email"]', USER_EMAIL);
+
+    await visualPause(500);
+
+    console.log('📝 Ввод пароля...');
     await page.fill('[name="password"]', USER_PASSWORD);
+
+    await visualPause(1000);
 
     console.log('🖱️ Нажатие кнопки "Продолжить"...');
 
@@ -85,6 +105,8 @@ async function createTask() {
 
     console.log('✅ Вход выполнен!');
     console.log(`🏠 Текущий URL: ${page.url()}`);
+
+    await visualPause(1500);
 
     // 2️⃣ Поиск пространства
     console.log('\n📁 Поиск пространства...');
@@ -134,6 +156,8 @@ async function createTask() {
       }
     }
 
+    await visualPause(1000);
+
     // 3️⃣ Переход в проект
     if (boardHref) {
       console.log(
@@ -141,6 +165,8 @@ async function createTask() {
       );
 
       console.log(`🔗 ${boardHref}`);
+
+      await visualPause(1000);
 
       await page.goto(
         new URL(
@@ -175,6 +201,8 @@ async function createTask() {
         `📍 URL пространства: ${page.url()}`
       );
 
+      await visualPause(1500);
+
       console.log('\n📂 Поиск проекта...');
 
       const projectLinks = page.locator(
@@ -201,6 +229,8 @@ async function createTask() {
         `🔗 Найдена доска проекта: ${projectHref}`
       );
 
+      await visualPause(1000);
+
       await page.goto(
         new URL(
           projectHref,
@@ -220,6 +250,8 @@ async function createTask() {
 
     console.log('✅ Доска проекта открыта');
     console.log(`📍 URL проекта: ${page.url()}`);
+
+    await visualPause(1500);
 
     // 4️⃣ Ждём реальную загрузку доски
     console.log(
@@ -274,6 +306,8 @@ async function createTask() {
       '✅ Доска полностью загрузилась'
     );
 
+    await visualPause(1500);
+
     // 5️⃣ Добавление задачи
     console.log(
       '\n➕ Нажатие на "Добавить задачу"...'
@@ -284,6 +318,8 @@ async function createTask() {
     console.log(
       '✅ Клик по "Добавить задачу" выполнен'
     );
+
+    await visualPause(1500);
 
     // 6️⃣ Ввод названия
     console.log(
@@ -307,21 +343,32 @@ async function createTask() {
       timeout: 10000
     });
 
+    console.log(
+      '✅ Поле названия задачи найдено'
+    );
+
+    await visualPause(1000);
+
+    console.log(
+      `⌨️ Ввод названия: "${TASK_NAME}"`
+    );
+
     await taskInput.fill(TASK_NAME);
 
     console.log(
       `✅ Введено название: ${TASK_NAME}`
     );
 
+    await visualPause(1500);
+
     // 7️⃣ Сохранение задачи
-    //
-    // По текущей структуре интерфейса, как и с колонкой,
-    // сначала пробуем Enter.
     console.log(
       '\n💾 Сохранение задачи клавишей Enter...'
     );
 
     let taskResponse = null;
+
+    await visualPause(1000);
 
     try {
       [taskResponse] = await Promise.all([
@@ -372,6 +419,12 @@ async function createTask() {
           }
         );
 
+      await visualPause(1000);
+
+      console.log(
+        '🖱️ Клик вне поля задачи...'
+      );
+
       await page
         .locator('body')
         .click({
@@ -388,6 +441,8 @@ async function createTask() {
         '✅ POST получен после потери фокуса'
       );
     }
+
+    await visualPause(1500);
 
     // 8️⃣ Проверка ответа API
     if (taskResponse) {
@@ -456,6 +511,8 @@ async function createTask() {
       );
     }
 
+    await visualPause(1500);
+
     // 🔟 Проверка задачи в интерфейсе
     console.log(
       '\n🔎 Проверка созданной задачи на странице...'
@@ -479,6 +536,8 @@ async function createTask() {
     console.log(
       `✅ Задача "${TASK_NAME}" отображается на странице`
     );
+
+    await visualPause(2000);
 
     // 1️⃣1️⃣ Проверка перехваченных POST
     console.log(
@@ -510,6 +569,9 @@ async function createTask() {
       );
     }
 
+    // Финальное состояние оставляем на экране
+    await visualPause(3000);
+
     // 1️⃣2️⃣ Скриншот
     await page.screenshot({
       path: 'task-created.png',
@@ -534,6 +596,10 @@ async function createTask() {
       `📍 URL в момент ошибки: ${page.url()}`
     );
 
+    // Даём глазами посмотреть на экран,
+    // на котором произошла ошибка
+    await visualPause(3000);
+
     try {
       await page.screenshot({
         path: 'task-error.png',
@@ -543,6 +609,7 @@ async function createTask() {
       console.log(
         '📸 Скриншот ошибки сохранён: task-error.png'
       );
+
     } catch (e) {
       console.warn(
         '⚠️ Не удалось сохранить скриншот'
