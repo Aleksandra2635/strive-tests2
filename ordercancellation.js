@@ -4,251 +4,295 @@ const { getBrowserOptions } = require('./browserConfig');
 require('dotenv').config();
 
 async function ordercancellation() {
-  // Загрузка переменных из .env
   const USER_EMAIL = process.env.USER_EMAIL;
   const USER_PASSWORD = process.env.USER_PASSWORD;
 
   console.log('🚀 Запуск теста отмены заказа...');
-
   console.log(`📧 Email: ${USER_EMAIL}`);
 
-   // Запуск браузера с конфигом
-  const browserOptions = getBrowserOptions(); // ← Получаем опции
-  console.log(`🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`);
-  
-  const browser = await chromium.launch(browserOptions); // ← Используем опции
-  
+  const browserOptions = getBrowserOptions();
+
+  console.log(
+    `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
+  );
+
+  const browser = await chromium.launch(browserOptions);
+
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
-    viewport: { width: 1920, height: 1080 } // ← Добавляем размер окна
+    viewport: {
+      width: 1920,
+      height: 1080
+    }
   });
-  
+
   const page = await context.newPage();
-  page.setDefaultTimeout(60000); // 60 секунд
+
+  page.setDefaultTimeout(60000);
 
   try {
     // 1️⃣ Открытие страницы входа
     console.log('🌐 Открытие страницы входа...');
+
     await page.goto('https://app.striveapp.ru/login', {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     });
+
     console.log('✅ Страница входа загружена');
 
-    // 2️⃣ Ожидание появления поля email
+    // 2️⃣ Ожидание поля email
     console.log('⏳ Ожидание поля ввода email...');
-    await page.waitForSelector('[name="email"]', { 
-      state: 'visible', 
-      timeout: 30000 
+
+    await page.locator('[name="email"]').waitFor({
+      state: 'visible',
+      timeout: 30000
     });
 
     // 3️⃣ Ввод данных
     console.log('📝 Ввод email...');
-    await page.fill('[name="email"]', USER_EMAIL);
-    
+
+    await page.fill(
+      '[name="email"]',
+      USER_EMAIL
+    );
+
     console.log('📝 Ввод пароля...');
-    await page.fill('[name="password"]', USER_PASSWORD);
 
-    // 4️⃣ Клик по кнопке "Продолжить"
+    await page.fill(
+      '[name="password"]',
+      USER_PASSWORD
+    );
+
+    // 4️⃣ Вход
     console.log('🖱️ Нажатие кнопки "Продолжить"...');
-    await page.waitForSelector('button[type="submit"]', { 
-      state: 'visible', 
-      timeout: 15000 
-    });
-    await page.click('button[type="submit"]');
 
-    // 5️⃣ Ожидание успешного входа
+    await page.locator(
+      'button[type="submit"]'
+    ).click();
+
     console.log('⏳ Ожидание завершения входа...');
-    
-    // Ждём появления элементов главной страницы
-    await page.waitForURL(/(\/main|\/dashboard|\/workspace)/, { timeout: 45000 });
+
+    await page.waitForURL(
+      /\/main|\/dashboard|\/workspace/,
+      {
+        timeout: 45000
+      }
+    );
+
     console.log('✅ Вход успешно выполнен!');
     console.log(`🏠 Текущий URL: ${page.url()}`);
 
-        // 6️⃣ Переход в "Моя организация"
-    console.log('\n🏢 Переход в раздел "Моя организация"...');
-    
-    // Находим элемент по точному XPath и кликаем по нему
-    const orgLinkLocator = page.locator('xpath=/html/body/div[1]/div[1]/section/aside/div[1]/div[2]/div[1]/a[4]/div/div[2]');
-    
-    // Явно ждем, пока элемент станет видимым (до 15 секунд)
-    await orgLinkLocator.waitFor({ state: 'visible', timeout: 15000 });
-    
-    // Совершаем клик
-    await orgLinkLocator.click();
-    
-    console.log('✅ Клик по "Моя организация" выполнен');
-    
-    // Небольшая пауза для завершения анимации перехода или загрузки данных
-    await page.waitForTimeout(1000);
+    // 5️⃣ Переход в "Моя организация"
+    console.log(
+      '\n🏢 Переход в раздел "Моя организация"...'
+    );
 
-// Ждём точного совпадения с нужным урлом
-try {
-  await page.waitForURL('https://app.striveapp.ru/admin-panel/organization', {
-    timeout: 20000
-  });
-  
-  const currentUrl = page.url();
-  console.log('✅ Страница "Моя организация" загружена!');
-  console.log(`📍 URL страницы организации: ${currentUrl}`);
-} catch (err) {
-  console.warn('⚠️ Не удалось загрузить страницу "Моя организация"');
-  console.warn('💡 Ожидаемый урл: https://app.striveapp.ru/admin-panel/organization');
-  console.warn('💡 Текущий урл:', page.url());
-}
-    // 8️⃣ Переход в "Оплата и тарифы"
-    console.log('\n💳 Переход в раздел "Оплата и тарифы"...');
-    
-    // Способ 1: По тексту кнопки (на основе вашего HTML)
-    try {
-      // Используем селектор по тексту из вашего HTML
-      await page.waitForSelector('button:has-text("Оплата и тарифы")', {
-        state: 'visible',
-        timeout: 15000
-      });
-      await page.click('button:has-text("Оплата и тарифы")');
-      console.log('✅ Клик по "Оплата и тарифы" выполнен');
-    } catch (err) {
-      console.warn('⚠️ Не удалось найти "Оплата и тарифы" по тексту, пробуем другие варианты...');
-      
-      // Способ 2: По классам (на основе вашего HTML)
-      try {
-        await page.waitForSelector('button.flex.flex-row.gap-[5px].text-[#111012]', {
-          state: 'visible',
-          timeout: 10000
-        });
-        await page.click('button.flex.flex-row.gap-[5px].text-[#111012]');
-        console.log('✅ Клик по кнопке "Оплата и тарифы" выполнен по классам');
-      } catch (err2) {
-        // Способ 3: По иконке (если есть)
-        try {
-          await page.waitForSelector('svg path[d*="payment"], svg path[d*="dollar"], svg path[d*="money"]', {
-            state: 'visible',
-            timeout: 10000
-          });
-          await page.click('svg path[d*="payment"], svg path[d*="dollar"], svg path[d*="money"]');
-          console.log('✅ Клик по иконке оплаты выполнен');
-        } catch (err3) {
-          console.warn('⚠️ Не удалось найти "Оплата и тарифы" стандартными способами');
-          console.warn('💡 Попробуйте найти селектор вручную через DevTools (F12)');
-        }
+    await page.goto(
+      'https://app.striveapp.ru/admin-panel',
+      {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000
       }
-    }
+    );
 
-    // 9️⃣ Ожидание загрузки страницы "Оплата и тарифы"
-console.log('⏳ Ожидание загрузки страницы "Оплата и тарифы"...');
+    await page.waitForURL(
+      '**/admin-panel',
+      {
+        timeout: 20000
+      }
+    );
 
-try {
-  await page.waitForURL('https://app.striveapp.ru/admin-panel/tarif', {
-    timeout: 20000
-  });
-  
-  const currentUrl = page.url();
-  console.log('✅ Страница "Оплата и тарифы" загружена!');
-  console.log(`📍 URL страницы оплаты: ${currentUrl}`);
-} catch (err) {
-  console.warn('⚠️ Не удалось загрузить страницу "Оплата и тарифы"');
-  console.warn('💡 Ожидаемый урл: https://app.striveapp.ru/admin-panel/tarif');
-  console.warn('💡 Текущий урл:', page.url());
-}
+    console.log(
+      '✅ Страница "Моя организация" загружена!'
+    );
 
-    // 🔟 Отмена заказа
-    console.log('\n🔄 Начало процесса отмены заказа...');
-    
-    // 10.1 Нажатие на кнопку "Отменить заказ"
-    console.log('🗑️ Нажатие на кнопку "Отменить заказ"...');
-    try {
-      // Ожидание появления кнопки "Отменить заказ"
-      await page.waitForSelector('button:has-text("Отменить заказ")', {
-        state: 'visible',
-        timeout: 15000
-      });
-      
-      // Нажатие на кнопку
-      await page.click('button:has-text("Отменить заказ")');
-      console.log('✅ Клик по "Отменить заказ" выполнен');
-      
-      // Добавляем небольшую задержку для появления модального окна
-      await page.waitForTimeout(1000);
-    } catch (err) {
-      console.error('❌ Не удалось найти кнопку "Отменить заказ"');
-      throw new Error('Не удалось найти кнопку "Отменить заказ"');
-    }
+    console.log(
+      `📍 URL: ${page.url()}`
+    );
 
-    // 10.2 Ввод причины отмены
-    console.log('\n📝 Ввод причины отмены...');
-    try {
-      // Ожидание появления текстового поля
-      await page.waitForSelector('textarea[placeholder="Введите причину отмены"]', {
-        state: 'visible',
-        timeout: 10000
-      });
+    // 6️⃣ Переход в "Оплата и тарифы"
+    console.log(
+      '\n💳 Переход в раздел "Оплата и тарифы"...'
+    );
 
-      // Ввод текста "Strive Test"
-      await page.fill('textarea[placeholder="Введите причину отмены"]', 'Strive Test');
-      console.log('✅ Введена причина: Strive Test');
-    } catch (err) {
-      console.error('❌ Не удалось найти поле ввода причины');
-      throw new Error('Не удалось найти поле ввода причины');
-    }
+    await page.goto(
+      'https://app.striveapp.ru/admin-panel/tarif',
+      {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000
+      }
+    );
 
-    // 10.3 Нажатие кнопки "Сохранить"
-    console.log('\n💾 Нажатие кнопки "Сохранить"...');
-    try {
-      // Ожидание появления кнопки "Сохранить"
-      await page.waitForSelector('button:has-text("Сохранить")', {
-        state: 'visible',
-        timeout: 10000
-      });
-      
-      // Нажатие на кнопку
-      await page.click('button:has-text("Сохранить")');
-      console.log('✅ Клик по "Сохранить" выполнен');
-      
-      // Добавляем небольшую задержку для обработки запроса
-      await page.waitForTimeout(2000);
-    } catch (err) {
-      console.error('❌ Не удалось найти кнопку "Сохранить"');
-      throw new Error('Не удалось найти кнопку "Сохранить"');
-    }
+    await page.waitForURL(
+      '**/admin-panel/tarif',
+      {
+        timeout: 20000
+      }
+    );
 
-    // 11️⃣ Сохраняем скриншот для подтверждения
-    await page.screenshot({ path: 'cancellation-confirmation.png' });
-    console.log('📸 Скриншот сохранён: cancellation-confirmation.png');
+    console.log(
+      '✅ Страница "Оплата и тарифы" загружена!'
+    );
+
+    console.log(
+      `📍 URL: ${page.url()}`
+    );
+
+    // 7️⃣ Отмена заказа
+    console.log(
+      '\n🔄 Начало процесса отмены заказа...'
+    );
+
+    // 7.1 Нажатие "Отменить заказ"
+    console.log(
+      '🗑️ Поиск кнопки "Отменить заказ"...'
+    );
+
+    const cancelOrderButton = page.getByRole(
+      'button',
+      {
+        name: 'Отменить заказ'
+      }
+    );
+
+    await cancelOrderButton.waitFor({
+      state: 'visible',
+      timeout: 15000
+    });
+
+    await cancelOrderButton.click();
+
+    console.log(
+      '✅ Клик по "Отменить заказ" выполнен'
+    );
+
+    // 7.2 Ввод причины отмены
+    console.log(
+      '\n📝 Ввод причины отмены...'
+    );
+
+    const reasonInput = page.locator(
+      'textarea[placeholder="Введите причину отмены"]'
+    );
+
+    await reasonInput.waitFor({
+      state: 'visible',
+      timeout: 10000
+    });
+
+    await reasonInput.fill(
+      'Strive Test'
+    );
+
+    console.log(
+      '✅ Введена причина: Strive Test'
+    );
+
+    // 7.3 Нажатие "Сохранить"
+    console.log(
+      '\n💾 Нажатие кнопки "Сохранить"...'
+    );
+
+    const saveButton = page.getByRole(
+      'button',
+      {
+        name: 'Сохранить'
+      }
+    );
+
+    await saveButton.waitFor({
+      state: 'visible',
+      timeout: 10000
+    });
+
+    await saveButton.click();
+
+    console.log(
+      '✅ Клик по "Сохранить" выполнен'
+    );
+
+    // Даём интерфейсу обработать отмену
+    await page.waitForTimeout(2000);
+
+    // 8️⃣ Скриншот подтверждения
+    await page.screenshot({
+      path: 'cancellation-confirmation.png',
+      fullPage: true
+    });
+
+    console.log(
+      '📸 Скриншот сохранён: cancellation-confirmation.png'
+    );
+
+    console.log(
+      '\n✅ Отмена заказа выполнена'
+    );
 
   } catch (error) {
-    console.error('❌ Ошибка при выполнении теста:', error.message);
-    
-    // Сохраняем скриншот ошибки
+    console.error(
+      '❌ Ошибка при выполнении теста:',
+      error.message
+    );
+
+    console.error(
+      `📍 URL в момент ошибки: ${page.url()}`
+    );
+
     try {
-      await page.screenshot({ path: 'error.png' });
-      console.log('📸 Скриншот ошибки сохранён: error.png');
+      await page.screenshot({
+        path: 'error.png',
+        fullPage: true
+      });
+
+      console.log(
+        '📸 Скриншот ошибки сохранён: error.png'
+      );
     } catch (e) {
-      console.warn('⚠️ Не удалось сохранить скриншот');
+      console.warn(
+        '⚠️ Не удалось сохранить скриншот'
+      );
     }
-    
-    // Сохраняем HTML для отладки
+
     try {
       const html = await page.content();
-      require('fs').writeFileSync('error.html', html);
-      console.log('📄 HTML страницы сохранён: error.html');
+
+      require('fs').writeFileSync(
+        'error.html',
+        html
+      );
+
+      console.log(
+        '📄 HTML страницы сохранён: error.html'
+      );
     } catch (e) {
-      console.warn('⚠️ Не удалось сохранить HTML');
+      console.warn(
+        '⚠️ Не удалось сохранить HTML'
+      );
     }
-    
+
     throw error;
+
   } finally {
-    // Закрытие браузера (закомментируйте для отладки)
     await browser.close();
-    console.log('\nℹ️ Браузер закрыт');
+
+    console.log(
+      '\nℹ️ Браузер закрыт'
+    );
   }
 }
 
 ordercancellation()
   .then(() => {
-    console.log('\n✨ Тест отмены заказа завершён успешно');
+    console.log(
+      '\n✨ Тест отмены заказа завершён успешно'
+    );
   })
   .catch(error => {
-    console.error('\n💥 Тест завершился с ошибкой:', error.message);
+    console.error(
+      '\n💥 Тест завершился с ошибкой:',
+      error.message
+    );
+
     process.exit(1);
   });
