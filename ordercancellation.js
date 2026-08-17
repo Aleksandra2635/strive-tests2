@@ -13,11 +13,11 @@ async function ordercancellation() {
   const browserOptions = getBrowserOptions();
 
   console.log(
-    `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
+    `🖥️ Режим браузера: ${
+      browserOptions.headless ? 'headless' : 'видимый'
+    }`
   );
 
-  // В видимом режиме замедляем действия Playwright,
-  // чтобы можно было глазами следить за тестом.
   if (!browserOptions.headless) {
     browserOptions.slowMo = 700;
     console.log('🐢 Визуальный режим: slowMo = 700 мс');
@@ -37,7 +37,6 @@ async function ordercancellation() {
 
   page.setDefaultTimeout(60000);
 
-  // Дополнительные паузы только в видимом режиме.
   const visualPause = async (ms = 1000) => {
     if (!browserOptions.headless) {
       await page.waitForTimeout(ms);
@@ -45,7 +44,7 @@ async function ordercancellation() {
   };
 
   try {
-    // 1️⃣ Открытие страницы входа
+    // 1. Открытие страницы входа
     console.log('\n🌐 Открытие страницы входа...');
 
     await page.goto(
@@ -62,19 +61,18 @@ async function ordercancellation() {
 
     await visualPause(1000);
 
-    // 2️⃣ Ожидание поля email
+    // 2. Email
     console.log(
       '⏳ Ожидание поля ввода email...'
     );
 
-    await page.locator(
-      '[name="email"]'
-    ).waitFor({
-      state: 'visible',
-      timeout: 30000
-    });
+    await page
+      .locator('[name="email"]')
+      .waitFor({
+        state: 'visible',
+        timeout: 30000
+      });
 
-    // 3️⃣ Ввод данных
     console.log(
       '📝 Ввод email...'
     );
@@ -86,6 +84,7 @@ async function ordercancellation() {
 
     await visualPause(500);
 
+    // 3. Пароль
     console.log(
       '📝 Ввод пароля...'
     );
@@ -97,14 +96,14 @@ async function ordercancellation() {
 
     await visualPause(1000);
 
-    // 4️⃣ Вход
+    // 4. Вход
     console.log(
       '🖱️ Нажатие кнопки "Продолжить"...'
     );
 
-    await page.locator(
-      'button[type="submit"]'
-    ).click();
+    await page
+      .locator('button[type="submit"]')
+      .click();
 
     console.log(
       '⏳ Ожидание завершения входа...'
@@ -127,7 +126,7 @@ async function ordercancellation() {
 
     await visualPause(1500);
 
-    // 5️⃣ Переход в "Моя организация"
+    // 5. Моя организация
     console.log(
       '\n🏢 Переход в раздел "Моя организация"...'
     );
@@ -140,8 +139,20 @@ async function ordercancellation() {
       }
     );
 
+    /*
+     * Сейчас приложение редиректит:
+     *
+     * /admin-panel
+     * →
+     * /admin-panel?attempt=1
+     * →
+     * /admin-panel/organization?attempt=1
+     *
+     * Поэтому ждём конечный URL организации,
+     * а query-параметры разрешаем.
+     */
     await page.waitForURL(
-      '**/admin-panel',
+      /\/admin-panel\/organization(?:\?.*)?$/,
       {
         timeout: 20000
       }
@@ -157,7 +168,7 @@ async function ordercancellation() {
 
     await visualPause(2000);
 
-    // 6️⃣ Переход в "Оплата и тарифы"
+    // 6. Оплата и тарифы
     console.log(
       '\n💳 Переход в раздел "Оплата и тарифы"...'
     );
@@ -170,8 +181,11 @@ async function ordercancellation() {
       }
     );
 
+    /*
+     * Аналогично разрешаем query-параметры.
+     */
     await page.waitForURL(
-      '**/admin-panel/tarif',
+      /\/admin-panel\/tarif(?:\?.*)?$/,
       {
         timeout: 20000
       }
@@ -187,12 +201,12 @@ async function ordercancellation() {
 
     await visualPause(2000);
 
-    // 7️⃣ Отмена заказа
+    // 7. Отмена заказа
     console.log(
       '\n🔄 Начало процесса отмены заказа...'
     );
 
-    // 7.1 Нажатие "Отменить заказ"
+    // 7.1 Кнопка "Отменить заказ"
     console.log(
       '🗑️ Поиск кнопки "Отменить заказ"...'
     );
@@ -201,7 +215,8 @@ async function ordercancellation() {
       page.getByRole(
         'button',
         {
-          name: 'Отменить заказ'
+          name: 'Отменить заказ',
+          exact: true
         }
       );
 
@@ -226,10 +241,9 @@ async function ordercancellation() {
       '✅ Клик по "Отменить заказ" выполнен'
     );
 
-    // Даём посмотреть на открывшуюся форму/модалку.
     await visualPause(2000);
 
-    // 7.2 Ввод причины отмены
+    // 7.2 Причина отмены
     console.log(
       '\n📝 Ввод причины отмены...'
     );
@@ -264,7 +278,7 @@ async function ordercancellation() {
 
     await visualPause(2000);
 
-    // 7.3 Нажатие "Сохранить"
+    // 7.3 Сохранить
     console.log(
       '\n💾 Нажатие кнопки "Сохранить"...'
     );
@@ -273,7 +287,8 @@ async function ordercancellation() {
       page.getByRole(
         'button',
         {
-          name: 'Сохранить'
+          name: 'Сохранить',
+          exact: true
         }
       );
 
@@ -286,8 +301,6 @@ async function ordercancellation() {
       '✅ Кнопка "Сохранить" найдена'
     );
 
-    // Перед подтверждением оставляем заполненную
-    // форму отмены перед глазами.
     await visualPause(2500);
 
     console.log(
@@ -300,13 +313,12 @@ async function ordercancellation() {
       '✅ Клик по "Сохранить" выполнен'
     );
 
-    // Исходная функциональная задержка.
+    // Даём интерфейсу обработать отмену.
     await page.waitForTimeout(2000);
 
-    // Дополнительно показываем результат в visible-режиме.
     await visualPause(2000);
 
-    // 8️⃣ Скриншот подтверждения
+    // 8. Скриншот
     await page.screenshot({
       path: 'cancellation-confirmation.png',
       fullPage: true
@@ -320,7 +332,6 @@ async function ordercancellation() {
       '\n✅ Отмена заказа выполнена'
     );
 
-    // Финальное состояние держим на экране.
     await visualPause(3000);
 
   } catch (error) {
@@ -334,8 +345,6 @@ async function ordercancellation() {
         `📍 URL в момент ошибки: ${page.url()}`
       );
 
-      // В видимом режиме оставляем экран ошибки
-      // на несколько секунд.
       await visualPause(3000);
 
       try {
