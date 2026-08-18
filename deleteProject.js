@@ -19,7 +19,6 @@ async function deleteProject() {
     }`
   );
 
-  // В видимом режиме замедляем действия Playwright
   if (!browserOptions.headless) {
     browserOptions.slowMo = 700;
     console.log('🐢 Визуальный режим: slowMo = 700 мс');
@@ -36,9 +35,10 @@ async function deleteProject() {
   });
 
   const page = await context.newPage();
-  page.setDefaultTimeout(60000);
 
-  // Дополнительные паузы только в видимом режиме
+  page.setDefaultTimeout(60000);
+  page.setDefaultNavigationTimeout(90000);
+
   const visualPause = async (ms = 1000) => {
     if (!browserOptions.headless) {
       await page.waitForTimeout(ms);
@@ -52,38 +52,59 @@ async function deleteProject() {
 
     console.log('\n🌐 Открытие страницы входа...');
 
-    await page.goto('https://app.striveapp.ru/login', {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
-    });
+    await page.goto(
+      'https://app.striveapp.ru/login',
+      {
+        waitUntil: 'commit',
+        timeout: 90000
+      }
+    );
+
+    console.log('⏳ Ожидание формы входа...');
 
     await page.locator('[name="email"]').waitFor({
       state: 'visible',
-      timeout: 30000
+      timeout: 60000
     });
+
+    console.log('✅ Страница входа готова');
 
     await visualPause(1000);
 
     console.log('📝 Ввод email...');
-    await page.fill('[name="email"]', USER_EMAIL);
+
+    await page.fill(
+      '[name="email"]',
+      USER_EMAIL
+    );
 
     await visualPause(500);
 
     console.log('📝 Ввод пароля...');
-    await page.fill('[name="password"]', USER_PASSWORD);
+
+    await page.fill(
+      '[name="password"]',
+      USER_PASSWORD
+    );
 
     await visualPause(1000);
 
-    console.log('🖱️ Нажатие кнопки "Продолжить"...');
+    console.log(
+      '🖱️ Нажатие кнопки "Продолжить"...'
+    );
 
-    await page.locator('button[type="submit"]').click();
+    await page
+      .locator('button[type="submit"]')
+      .click();
 
-    console.log('⏳ Ожидание успешного входа...');
+    console.log(
+      '⏳ Ожидание успешного входа...'
+    );
 
     await page.waitForURL(
       /\/main|\/dashboard|\/workspace/,
       {
-        timeout: 45000
+        timeout: 60000
       }
     );
 
@@ -104,10 +125,11 @@ async function deleteProject() {
 
     await spaceLinks.first().waitFor({
       state: 'visible',
-      timeout: 20000
+      timeout: 60000
     });
 
-    const spaceCount = await spaceLinks.count();
+    const spaceCount =
+      await spaceLinks.count();
 
     console.log(
       `🔎 Найдено ссылок, содержащих /spaces/: ${spaceCount}`
@@ -115,10 +137,15 @@ async function deleteProject() {
 
     let projectsHref = null;
 
-    for (let i = 0; i < spaceCount; i++) {
-      const href = await spaceLinks
-        .nth(i)
-        .getAttribute('href');
+    for (
+      let i = 0;
+      i < spaceCount;
+      i++
+    ) {
+      const href =
+        await spaceLinks
+          .nth(i)
+          .getAttribute('href');
 
       if (!href) {
         continue;
@@ -147,21 +174,28 @@ async function deleteProject() {
     await visualPause(1000);
 
     // ============================================================
-    // 3. ПЕРЕХОД В ПРОЕКТЫ
+    // 3. ПЕРЕХОД К СПИСКУ ПРОЕКТОВ
     // ============================================================
 
     console.log(
       '\n📂 Переход к списку проектов...'
     );
 
-    await page.goto(
+    const projectsUrl =
       new URL(
         projectsHref,
         'https://app.striveapp.ru'
-      ).href,
+      ).href;
+
+    console.log(
+      `🌐 Переход: ${projectsUrl}`
+    );
+
+    await page.goto(
+      projectsUrl,
       {
-        waitUntil: 'domcontentloaded',
-        timeout: 30000
+        waitUntil: 'commit',
+        timeout: 90000
       }
     );
 
@@ -172,17 +206,18 @@ async function deleteProject() {
     await visualPause(1500);
 
     // ============================================================
-    // 4. ОЖИДАНИЕ ПОЛНОЙ ЗАГРУЗКИ СТРАНИЦЫ ПРОЕКТОВ
+    // 4. ОЖИДАНИЕ РЕАЛЬНОЙ ЗАГРУЗКИ СТРАНИЦЫ ПРОЕКТОВ
     // ============================================================
 
     console.log(
       '\n⏳ Ожидание полной загрузки страницы проектов...'
     );
 
-    const PROJECTS_LOAD_TIMEOUT = 30000;
+    const PROJECTS_LOAD_TIMEOUT = 60000;
     const CHECK_INTERVAL = 500;
 
-    const loadStart = Date.now();
+    const loadStart =
+      Date.now();
 
     let addProject = null;
 
@@ -190,17 +225,24 @@ async function deleteProject() {
       Date.now() - loadStart <
       PROJECTS_LOAD_TIMEOUT
     ) {
-      const candidates = page.getByText(
-        'Добавить проект',
-        {
-          exact: true
-        }
-      );
+      const candidates =
+        page.getByText(
+          'Добавить проект',
+          {
+            exact: true
+          }
+        );
 
-      const count = await candidates.count();
+      const count =
+        await candidates.count();
 
-      for (let i = 0; i < count; i++) {
-        const candidate = candidates.nth(i);
+      for (
+        let i = 0;
+        i < count;
+        i++
+      ) {
+        const candidate =
+          candidates.nth(i);
 
         if (
           await candidate
@@ -223,7 +265,7 @@ async function deleteProject() {
 
     if (!addProject) {
       throw new Error(
-        'Страница проектов не загрузилась за 30 секунд: "Добавить проект" не появилась'
+        'Страница проектов не загрузилась за 60 секунд: "Добавить проект" не появилась'
       );
     }
 
@@ -265,14 +307,18 @@ async function deleteProject() {
         }
       );
 
-    await emptyProject.first().waitFor({
-      state: 'visible',
-      timeout: 15000
-    });
+    await emptyProject
+      .first()
+      .waitFor({
+        state: 'visible',
+        timeout: 30000
+      });
 
     await visualPause(1000);
 
-    await emptyProject.first().click();
+    await emptyProject
+      .first()
+      .click();
 
     console.log(
       '✅ Выбран "Пустой проект"'
@@ -281,7 +327,7 @@ async function deleteProject() {
     await visualPause(1500);
 
     // ============================================================
-    // 7. НАЗВАНИЕ
+    // 7. НАЗВАНИЕ ПРОЕКТА
     // ============================================================
 
     console.log(
@@ -304,7 +350,7 @@ async function deleteProject() {
 
     await projectInput.waitFor({
       state: 'visible',
-      timeout: 15000
+      timeout: 30000
     });
 
     await visualPause(1000);
@@ -338,7 +384,7 @@ async function deleteProject() {
 
     await createButton.waitFor({
       state: 'visible',
-      timeout: 15000
+      timeout: 30000
     });
 
     await visualPause(1000);
@@ -354,7 +400,7 @@ async function deleteProject() {
     );
 
     // ============================================================
-    // 9. ОЖИДАНИЕ ДОСКИ НОВОГО ПРОЕКТА
+    // 9. ОЖИДАНИЕ ОТКРЫТИЯ НОВОГО ПРОЕКТА
     // ============================================================
 
     console.log(
@@ -366,7 +412,7 @@ async function deleteProject() {
         url.pathname.includes('/spaces/') &&
         url.pathname.includes('/tasks'),
       {
-        timeout: 30000
+        timeout: 60000
       }
     );
 
@@ -381,7 +427,7 @@ async function deleteProject() {
     await visualPause(2000);
 
     // ============================================================
-    // 10. ВОЗВРАЩАЕМСЯ В СПИСОК
+    // 10. ВОЗВРАТ В СПИСОК ПРОЕКТОВ
     // ============================================================
 
     console.log(
@@ -389,14 +435,15 @@ async function deleteProject() {
     );
 
     await page.goto(
-      new URL(
-        projectsHref,
-        'https://app.striveapp.ru'
-      ).href,
+      projectsUrl,
       {
-        waitUntil: 'domcontentloaded',
-        timeout: 30000
+        waitUntil: 'commit',
+        timeout: 90000
       }
+    );
+
+    console.log(
+      `📍 URL после возврата: ${page.url()}`
     );
 
     console.log(
@@ -417,8 +464,9 @@ async function deleteProject() {
       Date.now();
 
     while (
-      Date.now() - projectStart <
-      30000
+      Date.now() -
+        projectStart <
+      60000
     ) {
       const count =
         await projectTitle.count();
@@ -452,7 +500,7 @@ async function deleteProject() {
 
     if (!visibleProject) {
       throw new Error(
-        `Созданный проект "${PROJECT_NAME}" не найден`
+        `Созданный проект "${PROJECT_NAME}" не найден за 60 секунд`
       );
     }
 
@@ -463,7 +511,7 @@ async function deleteProject() {
     await visualPause(2000);
 
     // ============================================================
-    // 11. ИЩЕМ КАРТОЧКУ ПРОЕКТА
+    // 11. КАРТОЧКА ПРОЕКТА
     // ============================================================
 
     console.log(
@@ -502,9 +550,11 @@ async function deleteProject() {
       }
 
       const buttons =
-        await projectCard.locator(
-          'button, [role="button"], [class*="cursor-pointer"]'
-        ).count();
+        await projectCard
+          .locator(
+            'button, [role="button"], [class*="cursor-pointer"]'
+          )
+          .count();
 
       if (buttons > 0) {
         break;
@@ -628,8 +678,9 @@ async function deleteProject() {
       Date.now();
 
     while (
-      Date.now() - deleteStart <
-      10000
+      Date.now() -
+        deleteStart <
+      30000
     ) {
       const count =
         await deleteTexts.count();
@@ -711,14 +762,13 @@ async function deleteProject() {
 
     await confirmButton.waitFor({
       state: 'visible',
-      timeout: 10000
+      timeout: 30000
     });
 
     console.log(
       '✅ Окно подтверждения открыто'
     );
 
-    // Даём возможность глазами увидеть модалку удаления
     await visualPause(2000);
 
     // ============================================================
@@ -749,7 +799,7 @@ async function deleteProject() {
             );
           },
           {
-            timeout: 15000
+            timeout: 30000
           }
         ),
 
@@ -797,7 +847,7 @@ async function deleteProject() {
     try {
       await visibleProject.waitFor({
         state: 'hidden',
-        timeout: 10000
+        timeout: 30000
       });
 
       console.log(
@@ -810,7 +860,6 @@ async function deleteProject() {
       );
     }
 
-    // Финальный экран держим подольше
     await visualPause(3000);
 
     // ============================================================
@@ -841,8 +890,6 @@ async function deleteProject() {
         `📍 URL в момент ошибки: ${page.url()}`
       );
 
-      // Оставляем проблемный экран видимым,
-      // чтобы можно было понять место падения
       await visualPause(3000);
 
       try {
@@ -854,6 +901,7 @@ async function deleteProject() {
         console.log(
           '📸 Скриншот ошибки сохранён: project-delete-error.png'
         );
+
       } catch (e) {
         console.warn(
           '⚠️ Не удалось сохранить скриншот'

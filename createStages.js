@@ -17,8 +17,8 @@ async function createColumn() {
     `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
   );
 
-  // В видимом режиме замедляем действия Playwright,
-  // чтобы было удобно следить за тестом глазами
+  // В видимом режиме замедляем действия Playwright.
+  // В GitHub Actions headless=true, поэтому slowMo там не используется.
   if (!browserOptions.headless) {
     browserOptions.slowMo = 700;
     console.log('🐢 Визуальный режим: slowMo = 700 мс');
@@ -35,9 +35,13 @@ async function createColumn() {
   });
 
   const page = await context.newPage();
+
+  // Общий timeout для локаторов.
   page.setDefaultTimeout(60000);
 
-  // Дополнительные паузы только в видимом режиме
+  // Навигация в CI может быть заметно медленнее.
+  page.setDefaultNavigationTimeout(90000);
+
   const visualPause = async (ms = 1000) => {
     if (!browserOptions.headless) {
       await page.waitForTimeout(ms);
@@ -45,22 +49,38 @@ async function createColumn() {
   };
 
   try {
-    // 1️⃣ Авторизация
+    // ============================================================
+    // 1. АВТОРИЗАЦИЯ
+    // ============================================================
+
     console.log('\n🌐 Открытие страницы входа...');
 
-    await page.goto('https://app.striveapp.ru/login', {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
-    });
+    await page.goto(
+      'https://app.striveapp.ru/login',
+      {
+        waitUntil: 'commit',
+        timeout: 90000
+      }
+    );
+
+    console.log(
+      '⏳ Ожидание формы входа...'
+    );
 
     await page.locator('[name="email"]').waitFor({
       state: 'visible',
-      timeout: 30000
+      timeout: 60000
     });
+
+    console.log(
+      '✅ Страница входа готова'
+    );
 
     await visualPause(1000);
 
-    console.log('📝 Ввод email...');
+    console.log(
+      '📝 Ввод email...'
+    );
 
     await page.fill(
       '[name="email"]',
@@ -69,7 +89,9 @@ async function createColumn() {
 
     await visualPause(500);
 
-    console.log('📝 Ввод пароля...');
+    console.log(
+      '📝 Ввод пароля...'
+    );
 
     await page.fill(
       '[name="password"]',
@@ -93,16 +115,24 @@ async function createColumn() {
     await page.waitForURL(
       /\/main|\/dashboard|\/workspace/,
       {
-        timeout: 45000
+        timeout: 60000
       }
     );
 
-    console.log('✅ Вход выполнен!');
-    console.log(`🏠 Текущий URL: ${page.url()}`);
+    console.log(
+      '✅ Вход выполнен!'
+    );
+
+    console.log(
+      `🏠 Текущий URL: ${page.url()}`
+    );
 
     await visualPause(1500);
 
-    // 2️⃣ Поиск пространства
+    // ============================================================
+    // 2. ПОИСК ПРОСТРАНСТВА
+    // ============================================================
+
     console.log(
       '\n📁 Поиск пространства или проекта...'
     );
@@ -111,10 +141,12 @@ async function createColumn() {
       'a[href*="/spaces/"]'
     );
 
-    await spaceLinks.first().waitFor({
-      state: 'visible',
-      timeout: 20000
-    });
+    await spaceLinks
+      .first()
+      .waitFor({
+        state: 'visible',
+        timeout: 60000
+      });
 
     const linksCount =
       await spaceLinks.count();
@@ -161,7 +193,10 @@ async function createColumn() {
 
     await visualPause(1000);
 
-    // 3️⃣ Переход на доску
+    // ============================================================
+    // 3. ПЕРЕХОД НА ДОСКУ ПРОЕКТА
+    // ============================================================
+
     if (boardHref) {
       console.log(
         '\n📂 Найдена прямая ссылка на доску проекта'
@@ -179,8 +214,8 @@ async function createColumn() {
           'https://app.striveapp.ru'
         ).href,
         {
-          waitUntil: 'domcontentloaded',
-          timeout: 30000
+          waitUntil: 'commit',
+          timeout: 90000
         }
       );
 
@@ -199,8 +234,8 @@ async function createColumn() {
           'https://app.striveapp.ru'
         ).href,
         {
-          waitUntil: 'domcontentloaded',
-          timeout: 30000
+          waitUntil: 'commit',
+          timeout: 90000
         }
       );
 
@@ -209,6 +244,10 @@ async function createColumn() {
       );
 
       await visualPause(1500);
+
+      // ============================================================
+      // 3.1 ЖДЁМ РЕАЛЬНУЮ ЗАГРУЗКУ ПРОЕКТОВ
+      // ============================================================
 
       console.log(
         '\n📂 Поиск проекта...'
@@ -223,7 +262,7 @@ async function createColumn() {
         .first()
         .waitFor({
           state: 'visible',
-          timeout: 20000
+          timeout: 60000
         });
 
       const projectHref =
@@ -243,14 +282,18 @@ async function createColumn() {
 
       await visualPause(1000);
 
+      console.log(
+        '🌐 Переход на доску проекта...'
+      );
+
       await page.goto(
         new URL(
           projectHref,
           'https://app.striveapp.ru'
         ).href,
         {
-          waitUntil: 'domcontentloaded',
-          timeout: 30000
+          waitUntil: 'commit',
+          timeout: 90000
         }
       );
 
@@ -261,7 +304,7 @@ async function createColumn() {
     }
 
     console.log(
-      '✅ Доска проекта открыта'
+      '✅ Переход на URL доски выполнен'
     );
 
     console.log(
@@ -270,15 +313,19 @@ async function createColumn() {
 
     await visualPause(1500);
 
-    // 4️⃣ Ждём загрузку доски
+    // ============================================================
+    // 4. ЖДЁМ РЕАЛЬНУЮ ЗАГРУЗКУ ДОСКИ
+    // ============================================================
+
     console.log(
       '\n⏳ Ожидание полной загрузки доски...'
     );
 
-    const BOARD_LOAD_TIMEOUT = 30000;
+    const BOARD_LOAD_TIMEOUT = 60000;
     const CHECK_INTERVAL = 500;
 
-    const startTime = Date.now();
+    const startTime =
+      Date.now();
 
     let addColumn = null;
 
@@ -306,7 +353,9 @@ async function createColumn() {
           addColumnCandidates.nth(i);
 
         if (
-          await candidate.isVisible()
+          await candidate
+            .isVisible()
+            .catch(() => false)
         ) {
           addColumn = candidate;
           break;
@@ -324,7 +373,7 @@ async function createColumn() {
 
     if (!addColumn) {
       throw new Error(
-        'Доска не загрузилась за 30 секунд: "Добавить колонку" не стала видимой'
+        'Доска не загрузилась за 60 секунд: "Добавить колонку" не стала видимой'
       );
     }
 
@@ -334,7 +383,10 @@ async function createColumn() {
 
     await visualPause(1500);
 
-    // 5️⃣ Добавление колонки
+    // ============================================================
+    // 5. ДОБАВЛЕНИЕ КОЛОНКИ
+    // ============================================================
+
     console.log(
       '\n➕ Нажатие на "Добавить колонку"...'
     );
@@ -347,7 +399,10 @@ async function createColumn() {
 
     await visualPause(1500);
 
-    // 6️⃣ Поле ввода названия
+    // ============================================================
+    // 6. ПОЛЕ НАЗВАНИЯ КОЛОНКИ
+    // ============================================================
+
     console.log(
       '\n📝 Поиск поля названия колонки...'
     );
@@ -368,7 +423,7 @@ async function createColumn() {
 
     await columnInput.waitFor({
       state: 'visible',
-      timeout: 10000
+      timeout: 30000
     });
 
     console.log(
@@ -391,7 +446,10 @@ async function createColumn() {
 
     await visualPause(1500);
 
-    // 7️⃣ Сохранение по Enter + ожидание POST
+    // ============================================================
+    // 7. СОХРАНЕНИЕ + POST
+    // ============================================================
+
     console.log(
       '\n💾 Сохранение колонки клавишей Enter...'
     );
@@ -417,7 +475,7 @@ async function createColumn() {
             );
           },
           {
-            timeout: 15000
+            timeout: 30000
           }
         ),
 
@@ -430,7 +488,10 @@ async function createColumn() {
 
     await visualPause(1500);
 
-    // 8️⃣ Проверка ответа сервера
+    // ============================================================
+    // 8. ПРОВЕРКА API
+    // ============================================================
+
     const status =
       response.status();
 
@@ -516,7 +577,10 @@ async function createColumn() {
       );
     }
 
-    // 9️⃣ Проверка интерфейса
+    // ============================================================
+    // 9. ПРОВЕРКА UI
+    // ============================================================
+
     console.log(
       '\n🔎 Проверка созданной колонки в интерфейсе...'
     );
@@ -533,17 +597,19 @@ async function createColumn() {
       .first()
       .waitFor({
         state: 'visible',
-        timeout: 10000
+        timeout: 30000
       });
 
     console.log(
       `✅ Колонка "${COLUMN_NAME}" отображается на доске`
     );
 
-    // Оставляем итоговое состояние на экране
     await visualPause(3000);
 
-    // 🔟 Скриншот
+    // ============================================================
+    // 10. СКРИНШОТ
+    // ============================================================
+
     await page.screenshot({
       path: 'column-created.png',
       fullPage: false
@@ -563,53 +629,55 @@ async function createColumn() {
       error.message
     );
 
-    console.error(
-      `📍 URL в момент ошибки: ${page.url()}`
-    );
-
-    // В видимом режиме оставляем экран ошибки
-    // на несколько секунд
-    await visualPause(3000);
-
-    try {
-      await page.screenshot({
-        path: 'column-error.png',
-        fullPage: true
-      });
-
-      console.log(
-        '📸 Скриншот ошибки сохранён: column-error.png'
+    if (!page.isClosed()) {
+      console.error(
+        `📍 URL в момент ошибки: ${page.url()}`
       );
 
-    } catch (e) {
-      console.warn(
-        '⚠️ Не удалось сохранить скриншот'
-      );
-    }
+      await visualPause(3000);
 
-    try {
-      const html =
-        await page.content();
+      try {
+        await page.screenshot({
+          path: 'column-error.png',
+          fullPage: true
+        });
 
-      require('fs').writeFileSync(
-        'column-error.html',
-        html
-      );
+        console.log(
+          '📸 Скриншот ошибки сохранён: column-error.png'
+        );
 
-      console.log(
-        '📄 HTML страницы сохранён: column-error.html'
-      );
+      } catch (e) {
+        console.warn(
+          '⚠️ Не удалось сохранить скриншот'
+        );
+      }
 
-    } catch (e) {
-      console.warn(
-        '⚠️ Не удалось сохранить HTML'
-      );
+      try {
+        const html =
+          await page.content();
+
+        require('fs').writeFileSync(
+          'column-error.html',
+          html
+        );
+
+        console.log(
+          '📄 HTML страницы сохранён: column-error.html'
+        );
+
+      } catch (e) {
+        console.warn(
+          '⚠️ Не удалось сохранить HTML'
+        );
+      }
     }
 
     throw error;
 
   } finally {
-    await browser.close();
+    if (browser.isConnected()) {
+      await browser.close();
+    }
 
     console.log(
       '\nℹ️ Браузер закрыт'

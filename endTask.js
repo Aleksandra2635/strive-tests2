@@ -17,8 +17,8 @@ async function completeTask() {
     `🖥️ Режим браузера: ${browserOptions.headless ? 'headless' : 'видимый'}`
   );
 
-  // В видимом режиме замедляем действия Playwright,
-  // чтобы можно было глазами следить за тестом.
+  // В видимом режиме замедляем действия Playwright.
+  // В CI headless=true, поэтому slowMo там не используется.
   if (!browserOptions.headless) {
     browserOptions.slowMo = 700;
     console.log('🐢 Визуальный режим: slowMo = 700 мс');
@@ -35,9 +35,10 @@ async function completeTask() {
   });
 
   const page = await context.newPage();
-  page.setDefaultTimeout(60000);
 
-  // Дополнительные паузы только в видимом режиме.
+  page.setDefaultTimeout(60000);
+  page.setDefaultNavigationTimeout(90000);
+
   const visualPause = async (ms = 1000) => {
     if (!browserOptions.headless) {
       await page.waitForTimeout(ms);
@@ -70,62 +71,103 @@ async function completeTask() {
   });
 
   try {
-    // 1️⃣ Авторизация
+    // ============================================================
+    // 1. АВТОРИЗАЦИЯ
+    // ============================================================
+
     console.log('\n🌐 Открытие страницы входа...');
 
-    await page.goto('https://app.striveapp.ru/login', {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
-    });
+    await page.goto(
+      'https://app.striveapp.ru/login',
+      {
+        waitUntil: 'commit',
+        timeout: 90000
+      }
+    );
+
+    console.log(
+      '⏳ Ожидание формы входа...'
+    );
 
     await page.locator('[name="email"]').waitFor({
       state: 'visible',
-      timeout: 30000
+      timeout: 60000
     });
+
+    console.log(
+      '✅ Страница входа готова'
+    );
 
     await visualPause(1000);
 
     console.log('📝 Ввод email...');
-    await page.fill('[name="email"]', USER_EMAIL);
+
+    await page.fill(
+      '[name="email"]',
+      USER_EMAIL
+    );
 
     await visualPause(500);
 
     console.log('📝 Ввод пароля...');
-    await page.fill('[name="password"]', USER_PASSWORD);
+
+    await page.fill(
+      '[name="password"]',
+      USER_PASSWORD
+    );
 
     await visualPause(1000);
 
-    console.log('🖱️ Нажатие кнопки "Продолжить"...');
+    console.log(
+      '🖱️ Нажатие кнопки "Продолжить"...'
+    );
 
-    await page.locator('button[type="submit"]').click();
+    await page
+      .locator('button[type="submit"]')
+      .click();
 
-    console.log('⏳ Ожидание успешного входа...');
+    console.log(
+      '⏳ Ожидание успешного входа...'
+    );
 
     await page.waitForURL(
       /\/main|\/dashboard|\/workspace/,
       {
-        timeout: 45000
+        timeout: 60000
       }
     );
 
-    console.log('✅ Вход выполнен!');
-    console.log(`🏠 Текущий URL: ${page.url()}`);
+    console.log(
+      '✅ Вход выполнен!'
+    );
+
+    console.log(
+      `🏠 Текущий URL: ${page.url()}`
+    );
 
     await visualPause(1500);
 
-    // 2️⃣ Поиск пространства
-    console.log('\n📁 Поиск пространства...');
+    // ============================================================
+    // 2. ПОИСК ПРОСТРАНСТВА / ПРОЕКТА
+    // ============================================================
+
+    console.log(
+      '\n📁 Поиск пространства...'
+    );
 
     const spaceLinks = page.locator(
       'a[href*="/spaces/"]'
     );
 
-    await spaceLinks.first().waitFor({
-      state: 'visible',
-      timeout: 20000
-    });
+    await spaceLinks
+      .first()
+      .waitFor({
+        state: 'visible',
+        timeout: 60000
+      });
 
-    const spaceCount = await spaceLinks.count();
+    const spaceCount =
+      await spaceLinks.count();
 
     console.log(
       `🔎 Найдено ссылок, содержащих /spaces/: ${spaceCount}`
@@ -134,10 +176,15 @@ async function completeTask() {
     let projectsHref = null;
     let boardHref = null;
 
-    for (let i = 0; i < spaceCount; i++) {
-      const href = await spaceLinks
-        .nth(i)
-        .getAttribute('href');
+    for (
+      let i = 0;
+      i < spaceCount;
+      i++
+    ) {
+      const href =
+        await spaceLinks
+          .nth(i)
+          .getAttribute('href');
 
       if (!href) {
         continue;
@@ -162,15 +209,18 @@ async function completeTask() {
 
     await visualPause(1000);
 
-    // 3️⃣ Переход на доску проекта
+    // ============================================================
+    // 3. ПЕРЕХОД НА ДОСКУ
+    // ============================================================
+
     if (boardHref) {
       console.log(
         '\n📂 Найдена прямая ссылка на доску проекта'
       );
 
-      console.log(`🔗 ${boardHref}`);
-
-      await visualPause(1000);
+      console.log(
+        `🔗 ${boardHref}`
+      );
 
       await page.goto(
         new URL(
@@ -178,8 +228,8 @@ async function completeTask() {
           'https://app.striveapp.ru'
         ).href,
         {
-          waitUntil: 'domcontentloaded',
-          timeout: 30000
+          waitUntil: 'commit',
+          timeout: 90000
         }
       );
 
@@ -188,7 +238,9 @@ async function completeTask() {
         '\n📁 Переход к списку проектов...'
       );
 
-      console.log(`🔗 ${projectsHref}`);
+      console.log(
+        `🔗 ${projectsHref}`
+      );
 
       await page.goto(
         new URL(
@@ -196,8 +248,8 @@ async function completeTask() {
           'https://app.striveapp.ru'
         ).href,
         {
-          waitUntil: 'domcontentloaded',
-          timeout: 30000
+          waitUntil: 'commit',
+          timeout: 90000
         }
       );
 
@@ -207,20 +259,26 @@ async function completeTask() {
 
       await visualPause(1500);
 
-      console.log('\n📂 Поиск проекта...');
-
-      const projectLinks = page.locator(
-        'a[href*="/spaces/"][href*="/tasks"]'
+      console.log(
+        '\n📂 Поиск проекта...'
       );
 
-      await projectLinks.first().waitFor({
-        state: 'visible',
-        timeout: 20000
-      });
+      const projectLinks =
+        page.locator(
+          'a[href*="/spaces/"][href*="/tasks"]'
+        );
 
-      const projectHref = await projectLinks
+      await projectLinks
         .first()
-        .getAttribute('href');
+        .waitFor({
+          state: 'visible',
+          timeout: 60000
+        });
+
+      const projectHref =
+        await projectLinks
+          .first()
+          .getAttribute('href');
 
       if (!projectHref) {
         throw new Error(
@@ -232,7 +290,9 @@ async function completeTask() {
         `🔗 Найдена доска проекта: ${projectHref}`
       );
 
-      await visualPause(1000);
+      console.log(
+        '🌐 Переход на доску проекта...'
+      );
 
       await page.goto(
         new URL(
@@ -240,8 +300,8 @@ async function completeTask() {
           'https://app.striveapp.ru'
         ).href,
         {
-          waitUntil: 'domcontentloaded',
-          timeout: 30000
+          waitUntil: 'commit',
+          timeout: 90000
         }
       );
 
@@ -251,17 +311,25 @@ async function completeTask() {
       );
     }
 
-    console.log('✅ Доска проекта открыта');
-    console.log(`📍 URL проекта: ${page.url()}`);
+    console.log(
+      '✅ Переход на URL доски выполнен'
+    );
+
+    console.log(
+      `📍 URL проекта: ${page.url()}`
+    );
 
     await visualPause(1500);
 
-    // 4️⃣ Ожидание загрузки доски
+    // ============================================================
+    // 4. ОЖИДАНИЕ РЕАЛЬНОЙ ЗАГРУЗКИ ДОСКИ
+    // ============================================================
+
     console.log(
       '\n⏳ Ожидание полной загрузки доски...'
     );
 
-    const BOARD_LOAD_TIMEOUT = 30000;
+    const BOARD_LOAD_TIMEOUT = 60000;
     const CHECK_INTERVAL = 500;
     const startTime = Date.now();
 
@@ -271,19 +339,30 @@ async function completeTask() {
       Date.now() - startTime <
       BOARD_LOAD_TIMEOUT
     ) {
-      const candidates = page.getByText(
-        'Добавить задачу',
-        {
-          exact: true
-        }
-      );
+      const candidates =
+        page.getByText(
+          'Добавить задачу',
+          {
+            exact: true
+          }
+        );
 
-      const count = await candidates.count();
+      const count =
+        await candidates.count();
 
-      for (let i = 0; i < count; i++) {
-        const candidate = candidates.nth(i);
+      for (
+        let i = 0;
+        i < count;
+        i++
+      ) {
+        const candidate =
+          candidates.nth(i);
 
-        if (await candidate.isVisible()) {
+        if (
+          await candidate
+            .isVisible()
+            .catch(() => false)
+        ) {
           addTask = candidate;
           break;
         }
@@ -300,7 +379,7 @@ async function completeTask() {
 
     if (!addTask) {
       throw new Error(
-        'Доска не загрузилась: "Добавить задачу" не стала видимой'
+        'Доска не загрузилась за 60 секунд: "Добавить задачу" не стала видимой'
       );
     }
 
@@ -310,7 +389,10 @@ async function completeTask() {
 
     await visualPause(1500);
 
-    // 5️⃣ Создание задачи
+    // ============================================================
+    // 5. СОЗДАНИЕ ЗАДАЧИ ДЛЯ ЗАВЕРШЕНИЯ
+    // ============================================================
+
     console.log(
       '\n➕ Создание задачи для завершения...'
     );
@@ -323,21 +405,23 @@ async function completeTask() {
 
     await visualPause(1500);
 
-    let taskInput = page.locator(
-      'textarea[type="text"]:visible'
-    );
+    let taskInput =
+      page.locator(
+        'textarea[type="text"]:visible'
+      );
 
     if (
       (await taskInput.count()) === 0
     ) {
-      taskInput = page
-        .locator('textarea:visible')
-        .first();
+      taskInput =
+        page
+          .locator('textarea:visible')
+          .first();
     }
 
     await taskInput.waitFor({
       state: 'visible',
-      timeout: 10000
+      timeout: 30000
     });
 
     console.log(
@@ -350,7 +434,9 @@ async function completeTask() {
       `⌨️ Ввод названия: "${TASK_NAME}"`
     );
 
-    await taskInput.fill(TASK_NAME);
+    await taskInput.fill(
+      TASK_NAME
+    );
 
     console.log(
       `✅ Введено название: ${TASK_NAME}`
@@ -358,23 +444,28 @@ async function completeTask() {
 
     await visualPause(1500);
 
-    // 6️⃣ Сохраняем созданную задачу
+    // ============================================================
+    // 6. СОХРАНЕНИЕ ЗАДАЧИ
+    // ============================================================
+
     console.log(
       '\n💾 Сохранение созданной задачи...'
     );
 
     let createTaskResponse = null;
 
-    await visualPause(1000);
-
     try {
       [createTaskResponse] =
         await Promise.all([
           page.waitForResponse(
             response => {
-              const url = response.url();
+              const url =
+                response.url();
+
               const method =
-                response.request().method();
+                response
+                  .request()
+                  .method();
 
               return (
                 method === 'POST' &&
@@ -382,7 +473,7 @@ async function completeTask() {
               );
             },
             {
-              timeout: 15000
+              timeout: 30000
             }
           ),
 
@@ -401,9 +492,13 @@ async function completeTask() {
       const responsePromise =
         page.waitForResponse(
           response => {
-            const url = response.url();
+            const url =
+              response.url();
+
             const method =
-              response.request().method();
+              response
+                .request()
+                .method();
 
             return (
               method === 'POST' &&
@@ -411,22 +506,18 @@ async function completeTask() {
             );
           },
           {
-            timeout: 15000
+            timeout: 30000
           }
         );
 
-      await visualPause(1000);
-
-      console.log(
-        '🖱️ Клик вне поля задачи...'
-      );
-
-      await page.locator('body').click({
-        position: {
-          x: 100,
-          y: 100
-        }
-      });
+      await page
+        .locator('body')
+        .click({
+          position: {
+            x: 100,
+            y: 100
+          }
+        });
 
       createTaskResponse =
         await responsePromise;
@@ -458,25 +549,29 @@ async function completeTask() {
 
     await visualPause(2000);
 
-    // 7️⃣ Ищем созданную задачу
+    // ============================================================
+    // 7. ПОИСК СОЗДАННОЙ ЗАДАЧИ
+    // ============================================================
+
     console.log(
       `\n🔎 Поиск созданной задачи "${TASK_NAME}"...`
     );
 
-    const createdTask = page.getByText(
-      TASK_NAME,
-      {
-        exact: true
-      }
-    );
+    const createdTask =
+      page.getByText(
+        TASK_NAME,
+        {
+          exact: true
+        }
+      );
 
     let taskElement = null;
-
-    const taskSearchStart = Date.now();
+    const taskSearchStart =
+      Date.now();
 
     while (
       Date.now() - taskSearchStart <
-      20000
+      30000
     ) {
       const taskCount =
         await createdTask.count();
@@ -489,8 +584,14 @@ async function completeTask() {
         const candidate =
           createdTask.nth(i);
 
-        if (await candidate.isVisible()) {
-          taskElement = candidate;
+        if (
+          await candidate
+            .isVisible()
+            .catch(() => false)
+        ) {
+          taskElement =
+            candidate;
+
           break;
         }
       }
@@ -514,7 +615,10 @@ async function completeTask() {
 
     await visualPause(2000);
 
-    // 8️⃣ Открываем задачу
+    // ============================================================
+    // 8. ОТКРЫТИЕ ЗАДАЧИ
+    // ============================================================
+
     console.log(
       '\n📝 Открытие задачи...'
     );
@@ -525,17 +629,16 @@ async function completeTask() {
       '✅ Клик по задаче выполнен'
     );
 
-    // Исходная функциональная задержка.
-    await page.waitForTimeout(1000);
+    await visualPause(1000);
 
     console.log(
       `📍 URL после открытия задачи: ${page.url()}`
     );
 
-    // Даём посмотреть на открытую карточку задачи.
-    await visualPause(2000);
+    // ============================================================
+    // 9. ПОИСК КНОПКИ "ЗАВЕРШИТЬ"
+    // ============================================================
 
-    // 9️⃣ Поиск кнопки "Завершить"
     console.log(
       '\n✅ Поиск кнопки "Завершить"...'
     );
@@ -543,10 +646,13 @@ async function completeTask() {
     let completeButton = null;
 
     const buttonCandidates = [
-      page.getByRole('button', {
-        name: 'Завершить',
-        exact: true
-      }),
+      page.getByRole(
+        'button',
+        {
+          name: 'Завершить',
+          exact: true
+        }
+      ),
 
       page.getByText(
         'Завершить',
@@ -556,24 +662,41 @@ async function completeTask() {
       )
     ];
 
-    for (const locator of buttonCandidates) {
-      const locatorCount =
-        await locator.count();
+    const completeSearchStart =
+      Date.now();
 
+    while (
+      Date.now() -
+        completeSearchStart <
+      30000
+    ) {
       for (
-        let i = 0;
-        i < locatorCount;
-        i++
+        const locator of buttonCandidates
       ) {
-        const candidate =
-          locator.nth(i);
+        const locatorCount =
+          await locator.count();
 
-        if (
-          await candidate
-            .isVisible()
-            .catch(() => false)
+        for (
+          let i = 0;
+          i < locatorCount;
+          i++
         ) {
-          completeButton = candidate;
+          const candidate =
+            locator.nth(i);
+
+          if (
+            await candidate
+              .isVisible()
+              .catch(() => false)
+          ) {
+            completeButton =
+              candidate;
+
+            break;
+          }
+        }
+
+        if (completeButton) {
           break;
         }
       }
@@ -581,6 +704,8 @@ async function completeTask() {
       if (completeButton) {
         break;
       }
+
+      await page.waitForTimeout(500);
     }
 
     if (!completeButton) {
@@ -593,10 +718,12 @@ async function completeTask() {
       '✅ Кнопка "Завершить" найдена'
     );
 
-    // Оставляем кнопку перед глазами.
     await visualPause(2000);
 
-    // 🔟 Завершение задачи + PATCH
+    // ============================================================
+    // 10. ЗАВЕРШЕНИЕ + PATCH
+    // ============================================================
+
     console.log(
       '\n📡 Завершаем задачу и ждём PATCH...'
     );
@@ -622,7 +749,7 @@ async function completeTask() {
             );
           },
           {
-            timeout: 15000
+            timeout: 30000
           }
         ),
 
@@ -633,9 +760,10 @@ async function completeTask() {
       '✅ Клик по "Завершить" выполнен'
     );
 
-    await visualPause(2000);
+    // ============================================================
+    // 11. ПРОВЕРКА API
+    // ============================================================
 
-    // 1️⃣1️⃣ Проверка API
     const status =
       patchResponse.status();
 
@@ -678,7 +806,10 @@ async function completeTask() {
       );
     }
 
-    // 1️⃣2️⃣ Проверка журнала responses
+    // ============================================================
+    // 12. ПРОВЕРКА ЖУРНАЛА RESPONSES
+    // ============================================================
+
     const storedPatch =
       responses.find(
         r =>
@@ -699,13 +830,12 @@ async function completeTask() {
       );
     }
 
-    // Исходная задержка после завершения.
-    await page.waitForTimeout(1500);
-
-    // Даём посмотреть на итоговое состояние задачи.
     await visualPause(3000);
 
-    // 1️⃣3️⃣ Скриншот
+    // ============================================================
+    // 13. СКРИНШОТ
+    // ============================================================
+
     await page.screenshot({
       path: 'task-completed.png',
       fullPage: false
@@ -730,7 +860,6 @@ async function completeTask() {
         `📍 URL в момент ошибки: ${page.url()}`
       );
 
-      // При ошибке оставляем проблемный экран перед глазами.
       await visualPause(3000);
 
       try {
